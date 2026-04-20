@@ -1,0 +1,28 @@
+{
+  "name": "bookmame-rental",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 4181",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4181"
+  },
+  "dependencies": {
+    "@bookmame/web-utils": "git+https://github.com/giesekow/bookmame-web-utils.git",
+    "@mdi/font": "^7.4.47",
+    "apexcharts": "^5.10.0",
+    "keycloak-js": "^26.2.1",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.13",
+    "vuetify": "3.7.3",
+    "vuetify-extended": "github:giesekow/vuetify-extended"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vue-tsc": "^2.2.8"
+  }
+}
