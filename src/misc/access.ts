@@ -21,6 +21,7 @@ export const RENTAL_PERMISSION_OPTIONS = [
   { id: 'rental.dashboard.view', name: 'Dashboard' },
   { id: 'rental.profile.view', name: 'Profile' },
   { id: 'rental.inventory.view', name: 'Inventory' },
+  { id: 'rental.delivery_partners.manage', name: 'Delivery Partners' },
   { id: 'rental.reservations.view', name: 'Reservations' },
   { id: 'rental.finance.view', name: 'Finance' },
 ];

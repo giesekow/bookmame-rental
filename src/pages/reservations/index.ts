@@ -50,6 +50,8 @@ function dateTime(value: unknown) {
 }
 
 function renderReservationHtml(reservation: any) {
+  const deliveryTasks = Array.isArray(reservation?.deliveryTasks) ? reservation.deliveryTasks : [];
+  const ledgerLines = Array.isArray(reservation?.ledgerLines) ? reservation.ledgerLines : [];
   return `
     <div style="font-family:inherit; color:#241a14; background:#fffaf5; border:1px solid #eadfcf; border-radius:18px; padding:18px;">
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:18px;">
@@ -67,6 +69,7 @@ function renderReservationHtml(reservation: any) {
         <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
           <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Item</div>
           <div style="font-weight:700;">${escapeHtml(reservation?.rentalInventoryItem?.name || 'Inventory item')}</div>
+          ${reservation?.rentalInventoryVariant?.name ? `<div style="margin-top:4px; color:#5f4e43;">Variant: ${escapeHtml(reservation.rentalInventoryVariant.name)}</div>` : ''}
           ${reservation?.rentalInventoryItem?.categoryLabel ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(reservation.rentalInventoryItem.categoryLabel)}</div>` : ''}
           <div style="margin-top:4px; color:#5f4e43;">Qty: ${escapeHtml(reservation?.quantity || 1)}</div>
         </div>
@@ -74,7 +77,15 @@ function renderReservationHtml(reservation: any) {
           <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Amount</div>
           <div style="font-weight:700;">${escapeHtml(money(reservation?.totalAmount, reservation?.currency))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Subtotal: ${escapeHtml(money(reservation?.subtotalAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Outbound delivery: ${escapeHtml(money(reservation?.outboundDeliveryFeeAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Return collection: ${escapeHtml(money(reservation?.returnDeliveryFeeAmount, reservation?.currency))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Deposit: ${escapeHtml(money(reservation?.securityDepositAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Deposit status: ${escapeHtml(String(reservation?.securityDepositStatus || 'not_required').replace(/_/g, ' '))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Deposit held: ${escapeHtml(money(reservation?.securityDepositHeldAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Deposit deducted: ${escapeHtml(money(reservation?.securityDepositDeductedAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Deposit refunded: ${escapeHtml(money(reservation?.securityDepositRefundedAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Service charge: ${escapeHtml(money(reservation?.serviceChargeAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Provider net: ${escapeHtml(money(reservation?.netAmount, reservation?.currency))}</div>
         </div>
       </div>
 
@@ -90,13 +101,75 @@ function renderReservationHtml(reservation: any) {
           <div style="font-weight:700;">${escapeHtml(String(reservation?.reservationStatus || 'requested').replace(/_/g, ' '))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Payment: ${escapeHtml(String(reservation?.paymentStatus || 'pending').replace(/_/g, ' '))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Method: ${escapeHtml(String(reservation?.paymentMethod || 'n/a').replace(/_/g, ' '))}</div>
+          ${reservation?.paymentProvider ? `<div style="margin-top:4px; color:#5f4e43;">Provider: ${escapeHtml(String(reservation.paymentProvider).replace(/_/g, ' '))}</div>` : ''}
+          ${reservation?.paymentReference ? `<div style="margin-top:4px; color:#5f4e43;">Reference: ${escapeHtml(reservation.paymentReference)}</div>` : ''}
+        </div>
+        <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Fulfilment</div>
+          <div style="font-weight:700;">${escapeHtml(String(reservation?.fulfillmentMethod || 'customer_pickup').replace(/_/g, ' '))}</div>
+          ${reservation?.deliveryCompany?.name ? `<div style="margin-top:4px; color:#5f4e43;">Outbound: ${escapeHtml(reservation.deliveryCompany.name)}</div>` : ''}
+          <div style="margin-top:4px; color:#5f4e43;">Return: ${escapeHtml(String(reservation?.returnFulfillmentMethod || 'return_by_customer').replace(/_/g, ' '))}</div>
+          ${reservation?.returnDeliveryCompany?.name ? `<div style="margin-top:4px; color:#5f4e43;">Return partner: ${escapeHtml(reservation.returnDeliveryCompany.name)}</div>` : ''}
         </div>
       </div>
+
+      ${reservation?.deliveryAddressLine1 ? `
+        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Delivery / Collection Address</div>
+          <div style="color:#5f4e43; white-space:pre-wrap;">${escapeHtml([
+            reservation.deliveryLabel,
+            reservation.deliveryAddressLine1,
+            reservation.deliveryAddressLine2,
+            reservation.deliveryLandmark,
+          ].filter(Boolean).join(', '))}</div>
+          ${reservation?.deliveryContactName ? `<div style="margin-top:6px; color:#5f4e43;">Contact: ${escapeHtml(reservation.deliveryContactName)}</div>` : ''}
+          ${reservation?.deliveryContactPhone ? `<div style="margin-top:4px; color:#5f4e43;">Phone: ${escapeHtml(reservation.deliveryContactPhone)}</div>` : ''}
+        </div>
+      ` : ''}
 
       ${reservation?.notes ? `
         <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
           <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Notes</div>
           <div style="color:#5f4e43; white-space:pre-wrap;">${escapeHtml(reservation.notes)}</div>
+        </div>
+      ` : ''}
+
+      ${(reservation?.securityDepositResolutionReason || reservation?.securityDepositRefundReference || reservation?.securityDepositResolvedAt) ? `
+        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Deposit Resolution</div>
+          ${reservation?.securityDepositResolutionReason ? `<div style="color:#5f4e43; margin-top:4px;">Reason: ${escapeHtml(reservation.securityDepositResolutionReason)}</div>` : ''}
+          ${reservation?.securityDepositRefundReference ? `<div style="color:#5f4e43; margin-top:4px;">Refund Reference: ${escapeHtml(reservation.securityDepositRefundReference)}</div>` : ''}
+          ${reservation?.securityDepositResolvedAt ? `<div style="color:#5f4e43; margin-top:4px;">Resolved At: ${escapeHtml(dateTime(reservation.securityDepositResolvedAt))}</div>` : ''}
+        </div>
+      ` : ''}
+
+      ${deliveryTasks.length ? `
+        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:10px;">Delivery Tasks</div>
+          <div style="display:grid; gap:10px;">
+            ${deliveryTasks.map((task: any) => `
+              <div style="border:1px solid #eadfcf; border-radius:12px; padding:12px;">
+                <div style="font-weight:700;">${escapeHtml(String(task.direction || '').replace(/_/g, ' '))} · ${escapeHtml(String(task.status || '').replace(/_/g, ' '))}</div>
+                <div style="margin-top:4px; color:#5f4e43;">${escapeHtml(task?.deliveryCompany?.name || 'Delivery partner')} · ${escapeHtml(money(task?.feeAmount, task?.currency || reservation?.currency))}</div>
+                ${task?.addressLine1 ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml([task.addressLine1, task.addressLine2, task.landmark].filter(Boolean).join(', '))}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${ledgerLines.length ? `
+        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:10px;">Ledger Lines</div>
+          <div style="display:grid; gap:10px;">
+            ${ledgerLines.map((line: any) => `
+              <div style="border:1px solid #eadfcf; border-radius:12px; padding:12px;">
+                <div style="font-weight:700;">${escapeHtml(line?.label || line?.entryType || 'Ledger line')}</div>
+                <div style="margin-top:4px; color:#5f4e43;">${escapeHtml(money(line?.amount, line?.currency || reservation?.currency))} · ${escapeHtml(String(line?.direction || 'credit'))}${line?.isRefundable ? ' · Refundable' : ''}</div>
+                ${(line?.beneficiaryType || line?.beneficiaryId) ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml([line.beneficiaryType, line.beneficiaryId].filter(Boolean).join(' · '))}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
         </div>
       ` : ''}
 
@@ -246,12 +319,89 @@ function failButton(report: Report, statusRef: Ref<any>) {
   });
 }
 
+function refundDepositButton(report: Report) {
+  return $BN({ text: 'Refund Deposit', color: 'success' }, {
+    onClicked: async (button) => {
+      const dialog = reasonDialog('Refund Deposit', 'Resolution Reason', async (reason) => {
+        try {
+          await patchReservation(String(button.$master?.$get('id') || ''), {
+            securityDepositAction: 'refund',
+            securityDepositResolutionReason: reason,
+          });
+          await refreshReport(report);
+          Dialogs.$success('Deposit refunded successfully.');
+        } catch (error: any) {
+          Dialogs.$error(error?.message || 'Failed to refund deposit.');
+        }
+      });
+
+      dialog.show();
+    },
+  });
+}
+
+function deductDepositButton(report: Report) {
+  return $BN({ text: 'Deduct Deposit', color: 'warning' }, {
+    onClicked: async (button) => {
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Deduct Deposit',
+            width: 560,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({ label: 'Deducted Amount', storage: 'securityDepositDeductedAmount', type: 'integer', required: true }),
+                  $FD({ label: 'Resolution Reason', storage: 'securityDepositResolutionReason', type: 'textarea', required: true, cols: 12 }),
+                  $FD({ label: 'Refund Reference', storage: 'securityDepositRefundReference', type: 'text', cols: 12 }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              const reason = String(form.$master?.$get('securityDepositResolutionReason') || '').trim();
+              const deductedAmount = Number(form.$master?.$get('securityDepositDeductedAmount') || 0);
+
+              if (!reason) {
+                Dialogs.$error('Resolution Reason is required.');
+                return;
+              }
+
+              if (!Number.isFinite(deductedAmount) || deductedAmount < 0) {
+                Dialogs.$error('Deducted Amount must be zero or greater.');
+                return;
+              }
+
+              try {
+                await patchReservation(String(button.$master?.$get('id') || ''), {
+                  securityDepositAction: 'deduct',
+                  securityDepositDeductedAmount: deductedAmount,
+                  securityDepositResolutionReason: reason,
+                  securityDepositRefundReference: form.$master?.$get('securityDepositRefundReference'),
+                });
+                await refreshReport(report);
+                Dialogs.$success('Deposit deduction saved successfully.');
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to deduct deposit.');
+              }
+            },
+          });
+        },
+      });
+
+      dialog.show();
+    },
+  });
+}
+
 const trigger = () => $TG({
   title: 'Reservations',
-  selectFields: ['reservationNumber', 'customerDisplayName', 'startDate', 'endDate', 'totalAmount', 'currency', 'paymentStatus', 'reservationStatus', 'createdAt'],
+  selectFields: ['reservationNumber', 'customerDisplayName', 'fulfillmentMethod', 'startDate', 'endDate', 'totalAmount', 'currency', 'paymentStatus', 'reservationStatus', 'createdAt'],
   headers: [
     { title: 'Reservation', value: 'reservationNumber' },
     { title: 'Customer', value: 'customerDisplayName' },
+    { title: 'Fulfilment', value: 'fulfillmentMethod' },
     { title: 'Start', value: 'startDate' },
     { title: 'End', value: 'endDate' },
     { title: 'Total', value: 'totalAmount' },
@@ -289,18 +439,26 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
   },
   sideButtons: (_props, _ctx, report) => {
     const statusRef: Ref<any> = ref(report.$master?.$get('reservationStatus'));
+    const paymentStatus = String(report.$master?.$get('paymentStatus') || 'pending');
     const buttons: Button[] = [];
 
-    if (statusRef.value === 'requested') {
+    if (paymentStatus === 'paid' && statusRef.value === 'requested') {
       buttons.push(confirmButton(report, statusRef));
     }
 
-    if (statusRef.value === 'confirmed') {
+    if (paymentStatus === 'paid' && statusRef.value === 'confirmed') {
       buttons.push(pickupButton(report, statusRef));
     }
 
-    if (statusRef.value === 'picked_up') {
+    if (paymentStatus === 'paid' && statusRef.value === 'picked_up') {
       buttons.push(returnButton(report, statusRef));
+    }
+
+    const depositAmount = Number(report.$master?.$get('securityDepositHeldAmount') || report.$master?.$get('securityDepositAmount') || 0);
+    const depositStatus = String(report.$master?.$get('securityDepositStatus') || 'not_required');
+    if (statusRef.value === 'returned' && depositAmount > 0 && ['held', 'not_required'].includes(depositStatus)) {
+      buttons.push(refundDepositButton(report));
+      buttons.push(deductDepositButton(report));
     }
 
     if (['requested', 'confirmed'].includes(String(statusRef.value || ''))) {

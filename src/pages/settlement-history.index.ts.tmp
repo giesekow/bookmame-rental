@@ -1,0 +1,345 @@
+import { $COL, $FD, $FM, $PT, $RP, $TG, Field, Master, Part } from 'vuetify-extended'
+import { makeConstantOptions } from '@bookmame/web-utils'
+import { hotelAccess } from '../../misc/access'
+import { makeCollectionMenu } from '../../misc/menu'
+import { useAppStore } from '../../store/app'
+
+type HistoryFlowType = 'payout' | 'remittance'
+
+const ONLINE_PAYMENT_METHODS = ['paystack', 'hubtel', 'online_demo']
+
+function servicePath() {
+  const hotelId = useAppStore().hotel?.id
+  if (!hotelId) {
+    throw new Error('No active hotel is selected.')
+  }
+  return `hotels/${hotelId}/settlements`
+}
+
+function historyTitle(flowType: HistoryFlowType) {
+  return flowType === 'remittance' ? 'Remittance History' : 'Settlement History'
+}
+
+function completionLabel(flowType: HistoryFlowType) {
+  return flowType === 'remittance' ? 'Remittance Received' : 'Paid Out'
+}
+
+function paymentMethodOptions() {
+  return [
+    { id: '', name: 'All Payment Methods' },
+    { id: 'paystack', name: 'Paystack' },
+    { id: 'hubtel', name: 'Hubtel' },
+    { id: 'online_demo', name: 'Online Demo' },
+    { id: 'online_payment', name: 'Online Payment' },
+    { id: 'cash_at_checkin', name: 'Cash at Check-in' },
+    { id: 'card_at_checkin', name: 'Card at Check-in' },
+    { id: 'cash_at_checkout', name: 'Cash at Check-out' },
+    { id: 'card_at_checkout', name: 'Card at Check-out' },
+  ]
+}
+
+function money(amountMinor: unknown, currency?: unknown) {
+  const amount = typeof amountMinor === 'number' ? amountMinor : Number(amountMinor || 0)
+  const normalizedCurrency = typeof currency === 'string' && currency.length === 3 ? currency.toUpperCase() : 'USD'
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: normalizedCurrency,
+    }).format((Number.isFinite(amount) ? amount : 0) / 100)
+  } catch (_error) {
+    return `${normalizedCurrency} ${((Number.isFinite(amount) ? amount : 0) / 100).toFixed(2)}`
+  }
+}
+
+function dateTime(value: unknown) {
+  const date = value ? new Date(String(value)) : null
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date)
+  } catch (_error) {
+    return date.toISOString()
+  }
+}
+
+function payoutActorLabel(item: any) {
+  const value = item?.payoutCompletedByLabel || item?.payoutInitiatedByLabel
+
+  if (value) {
+    return value
+  }
+
+  if (item?.status === 'paid_out' || item?.status === 'payout_initiated') {
+    return 'Not recorded'
+  }
+
+  return ''
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function label(value: unknown) {
+  return String(value || 'n/a').replace(/_/g, ' ')
+}
+
+function renderStatusChip(value: unknown) {
+  return `<span style="display:inline-block; padding:4px 10px; border-radius:999px; background:#eef4fa; border:1px solid #d7e2ec; color:#274056; font-size:12px; font-weight:700;">${escapeHtml(label(value))}</span>`
+}
+
+function renderHistorySummary(item: any, flowType: HistoryFlowType) {
+  const completedTitle = completionLabel(flowType)
+  const cards = [
+    ['Booking', item?.hotelBooking?.bookingNumber || 'n/a'],
+    ['Currency', item?.currency || 'n/a'],
+    ['Payment Method', label(item?.paymentMethod)],
+    ['Payment Status', label(item?.hotelBooking?.paymentStatus)],
+    ['Hotel Status', label(item?.hotelBooking?.hotelStatus)],
+    ['Booking Status', label(item?.hotelBooking?.bookingStatus)],
+    ['Net Amount', money(item?.netAmount, item?.currency)],
+    ['Outstanding Payable', money(item?.outstandingPayableAmount, item?.currency)],
+    ['Outstanding Remittance', money(item?.outstandingRemittanceAmount, item?.currency)],
+    ['Status', label(item?.status)],
+    ['Initiated At', dateTime(item?.initiatedAt) || 'Not available'],
+    [completedTitle, dateTime(item?.completedAt) || 'Not available'],
+    ['Issued By', payoutActorLabel(item) || 'Not recorded'],
+    ['Reference', item?.payoutReference || 'Not recorded'],
+  ]
+
+  return `
+    <div style="font-family:inherit; color:#10263b; background:#f7fbff; border:1px solid #d9e5f0; border-radius:18px; padding:18px;">
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#61768b;">${escapeHtml(historyTitle(flowType))}</div>
+        <div style="margin-top:6px; font-size:22px; font-weight:800;">${escapeHtml(item?.hotelBooking?.bookingNumber || 'Booking')}</div>
+        <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;">
+          ${renderStatusChip(item?.status)}
+          ${renderStatusChip(`payment ${item?.hotelBooking?.paymentStatus || 'n/a'}`)}
+          ${renderStatusChip(`hotel ${item?.hotelBooking?.hotelStatus || 'n/a'}`)}
+          ${renderStatusChip(`booking ${item?.hotelBooking?.bookingStatus || 'n/a'}`)}
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        ${cards.map(([name, value]) => `<div style="background:#fff; border:1px solid #dbe6ef; border-radius:14px; padding:14px;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#61768b; margin-bottom:6px;">${escapeHtml(name)}</div><div style="font-size:18px; font-weight:800; color:#10263b;">${escapeHtml(value)}</div></div>`).join('')}
+      </div>
+    </div>
+  `
+}
+
+function renderHistoryDetail(item: any, flowType: HistoryFlowType) {
+  const completedTitle = completionLabel(flowType)
+
+  return `
+    <div style="font-family:inherit; color:#10263b; background:#fff; border:1px solid #dbe6ef; border-radius:18px; overflow:hidden;">
+      <div style="padding:16px 18px; border-bottom:1px solid #dbe6ef; background:#f8fbfe;">
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#61768b;">${escapeHtml(historyTitle(flowType))} details</div>
+      </div>
+      <div style="padding:18px; display:grid; gap:16px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Gross</div><div style="font-weight:700;">${escapeHtml(money(item?.grossAmount, item?.currency))}</div></div>
+          <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Fee</div><div style="font-weight:700;">${escapeHtml(money(item?.feeAmount, item?.currency))}</div></div>
+          <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Net</div><div style="font-weight:700;">${escapeHtml(money(item?.netAmount, item?.currency))}</div></div>
+          <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Collected Directly</div><div style="font-weight:700;">${escapeHtml(money(item?.directCollectedAmount, item?.currency))}</div></div>
+          <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Outstanding Payable</div><div style="font-weight:700;">${escapeHtml(money(item?.outstandingPayableAmount, item?.currency))}</div></div>
+          <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Outstanding Remittance</div><div style="font-weight:700;">${escapeHtml(money(item?.outstandingRemittanceAmount, item?.currency))}</div></div>
+          <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Initiated By</div><div style="font-weight:700;">${escapeHtml(item?.payoutInitiatedByLabel || (item?.initiatedAt ? 'Not recorded' : 'Not available'))}</div></div>
+          <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">${escapeHtml(completedTitle)} By</div><div style="font-weight:700;">${escapeHtml(item?.payoutCompletedByLabel || (item?.completedAt ? 'Not recorded' : 'Not available'))}</div></div>
+        </div>
+        <div style="background:#fff; border:1px solid #dbe6ef; border-radius:14px; padding:14px;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#61768b; margin-bottom:8px;">Note</div>
+          <div style="color:#274056;">${escapeHtml(item?.payoutNote || 'No note provided.')}</div>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function createCollection(flowType: HistoryFlowType) {
+  const title = historyTitle(flowType)
+  const completedTitle = completionLabel(flowType)
+
+  const trigger = () => {
+    const trg = $TG({
+      title,
+      selectFields: [
+        'id',
+        'currency',
+        'grossAmount',
+        'feeAmount',
+        'netAmount',
+        'directCollectedAmount',
+        'outstandingPayableAmount',
+        'outstandingRemittanceAmount',
+        'status',
+        'paymentMethod',
+        'payoutReference',
+        'payoutNote',
+        'initiatedAt',
+        'payoutInitiatedByLabel',
+        'completedAt',
+        'payoutCompletedByLabel',
+        'createdAt',
+        'hotelBooking',
+        'hotelBooking.bookingNumber',
+        'hotelBooking.paymentStatus',
+        'hotelBooking.bookingStatus',
+        'hotelBooking.hotelStatus',
+      ],
+      queryFields: [
+        'status',
+        'paymentMethod',
+        'payoutReference',
+        'hotelBooking.bookingNumber',
+      ],
+      headers: [
+        { title: 'Booking', value: 'bookingNumber' },
+        { title: 'Currency', value: 'currency' },
+        { title: 'Net', value: 'netAmountStr', align: 'end' },
+        { title: 'Outstanding Payable', value: 'outstandingPayableAmountStr', align: 'end' },
+        { title: 'Outstanding Remittance', value: 'outstandingRemittanceAmountStr', align: 'end' },
+        { title: 'Status', value: 'status' },
+        { title: 'Initiated', value: 'initiatedAtStr' },
+        { title: completedTitle, value: 'completedAtStr' },
+        { title: 'Issued By', value: 'payoutActorLabel' },
+      ],
+      query: {
+        $sort: { createdAt: -1 },
+        $filters: flowType === 'remittance' ? { remittanceOnly: '1' } : { payoutOnly: '1' },
+      },
+      width: 1600,
+    }, {
+      topChildren: () => [
+        $FD({ label: 'Status', type: 'select', storage: 'status', md: 4, lg: 3, multiple: true }, {
+          selectOptions: makeConstantOptions('payment-settlement-statuses'),
+        }),
+        $FD({ label: 'Payment Method', type: 'select', storage: 'paymentMethod', md: 4, lg: 3 }, {
+          selectOptions: paymentMethodOptions,
+        }),
+        $FD({ label: 'Booking Date From', type: 'date', storage: 'orderPlacedAtFrom', md: 3, lg: 3 }),
+        $FD({ label: 'Booking Date To', type: 'date', storage: 'orderPlacedAtTo', md: 3, lg: 3 }),
+        $FD({ label: `${completedTitle} Date From`, type: 'date', storage: 'paidOutAtFrom', md: 3, lg: 3 }),
+        $FD({ label: `${completedTitle} Date To`, type: 'date', storage: 'paidOutAtTo', md: 3, lg: 3 }),
+      ],
+      format(_trigger, items) {
+        for (const item of items) {
+          item.bookingNumber = item?.hotelBooking?.bookingNumber || ''
+          item.netAmountStr = money(item.netAmount, item.currency)
+          item.outstandingPayableAmountStr = money(item.outstandingPayableAmount, item.currency)
+          item.outstandingRemittanceAmountStr = money(item.outstandingRemittanceAmount, item.currency)
+          item.initiatedAtStr = dateTime(item.initiatedAt)
+          item.completedAtStr = dateTime(item.completedAt)
+          item.payoutActorLabel = payoutActorLabel(item)
+        }
+        return items
+      },
+      processQuery(query, trigger) {
+        const rawStatus = trigger.$master?.$get('status', ['paid_out', 'cancelled', 'payout_failed'])
+        const status = Array.isArray(rawStatus) ? rawStatus : rawStatus ? [rawStatus] : []
+        const paymentMethod = String(trigger.$master?.$get('paymentMethod', '') || '').trim()
+        const orderPlacedAtFrom = String(trigger.$master?.$get('orderPlacedAtFrom', '') || '').trim()
+        const orderPlacedAtTo = String(trigger.$master?.$get('orderPlacedAtTo', '') || '').trim()
+        const paidOutAtFrom = String(trigger.$master?.$get('paidOutAtFrom', '') || '').trim()
+        const paidOutAtTo = String(trigger.$master?.$get('paidOutAtTo', '') || '').trim()
+        const andClauses: any[] = []
+
+        delete query.$and
+
+        query.$filters = {
+          ...(query.$filters || {}),
+          ...(flowType === 'remittance' ? { remittanceOnly: '1' } : { payoutOnly: '1' }),
+        }
+
+        if (orderPlacedAtFrom) query.orderPlacedAtFrom = orderPlacedAtFrom
+        else delete query.orderPlacedAtFrom
+        if (orderPlacedAtTo) query.orderPlacedAtTo = orderPlacedAtTo
+        else delete query.orderPlacedAtTo
+        if (paidOutAtFrom) query.paidOutAtFrom = paidOutAtFrom
+        else delete query.paidOutAtFrom
+        if (paidOutAtTo) query.paidOutAtTo = paidOutAtTo
+        else delete query.paidOutAtTo
+        if (status.length > 0) andClauses.push({ status: { $in: status } })
+        if (paymentMethod === 'online_payment') {
+          andClauses.push({ paymentMethod: { $in: ONLINE_PAYMENT_METHODS } })
+        } else if (paymentMethod) {
+          andClauses.push({ paymentMethod: { $in: [paymentMethod] } })
+        }
+        if (query.$or) {
+          andClauses.push({ $or: query.$or })
+          delete query.$or
+        }
+        if (andClauses.length > 0) query.$and = andClauses
+        return query
+      },
+      setup(trigger) {
+        const master = new Master({})
+        master.$set('status', ['paid_out', 'cancelled', 'payout_failed'])
+        master.$set('paymentMethod', '')
+        master.$set('orderPlacedAtFrom', null)
+        master.$set('orderPlacedAtTo', null)
+        master.$set('paidOutAtFrom', null)
+        master.$set('paidOutAtTo', null)
+        trigger.setMaster(master)
+      },
+    })
+
+    return trg
+  }
+
+  const report = () => {
+    const fields: (Field | Part)[] = [
+      $FD({ label: 'Summary', storage: 'summaryView', type: 'htmlview', readonly: true, cols: 12, minHeight: 320 }, {
+        default(field) {
+          return renderHistorySummary(field.$master?.$data || {}, flowType)
+        },
+      }),
+      $FD({ label: 'Details', storage: 'detailsView', type: 'htmlview', readonly: true, cols: 12, minHeight: 340 }, {
+        default(field) {
+          return renderHistoryDetail(field.$master?.$data || {}, flowType)
+        },
+      }),
+    ]
+
+    return $RP({ title: `${title} Entry` }, {
+      form: () => $FM({ title: `Inspect ${title.toLowerCase()}`, width: 1080 }, {
+        children: () => [$PT({}, { children: () => fields })],
+        access: hotelAccess('hotel.finance.view'),
+      }),
+      access: hotelAccess('hotel.finance.view'),
+    })
+  }
+
+  return $COL({
+    objectType: servicePath(),
+  }, {
+    trigger,
+    report,
+    access: hotelAccess('hotel.finance.view'),
+  })
+}
+
+export const hotelSettlementHistoryCollection = () => createCollection('payout')
+export const hotelRemittanceHistoryCollection = () => createCollection('remittance')
+
+export const hotelSettlementHistoryMenu = () => makeCollectionMenu({
+  title: 'Settlement History',
+  collection: hotelSettlementHistoryCollection,
+  access: hotelAccess('hotel.finance.view'),
+})
+
+export const hotelRemittanceHistoryMenu = () => makeCollectionMenu({
+  title: 'Remittance History',
+  collection: hotelRemittanceHistoryCollection,
+  access: hotelAccess('hotel.finance.view'),
+})

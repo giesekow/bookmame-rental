@@ -1,7 +1,35 @@
 import { makeConstantOptions, resolveIdToImage, resolveImageToId } from '@bookmame/web-utils';
-import { $COL, $FD, $FM, $PT, $RP, $TG, Field, Part } from 'vuetify-extended';
+import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, AppManager, Field, Part } from 'vuetify-extended';
 import { rentalAccess } from '../../misc/access';
+import { rentalInventoryImagesCollection } from '../inventory-images';
+import { rentalInventoryVariantsCollection } from '../inventory-variants';
 import { useAppStore } from '../../store/app';
+import { makeCollectionMenu } from '../../misc/menu';
+
+function rentalAttributesField(storage = 'attributes', label = 'Item Attributes') {
+  return $FD({ label, storage, type: 'collection', cols: 12, hint: 'Structured label and value rows shown to customers before the description section.' }, {
+    headers() {
+      return [
+        { title: 'Label', value: 'label' },
+        { title: 'Value', value: 'value' },
+        { title: 'Sort Order', value: 'sortOrder' },
+      ]
+    },
+    form() {
+      return $FM({}, {
+        children: () => [
+          $PT({}, {
+            children: () => [
+              $FD({ label: 'Label', storage: 'label', type: 'text', required: true }),
+              $FD({ label: 'Value', storage: 'value', type: 'text', required: true }),
+              $FD({ label: 'Sort Order', storage: 'sortOrder', type: 'integer' }),
+            ],
+          }),
+        ],
+      })
+    },
+  })
+}
 
 function getRentalProviderId() {
   const rentalProviderId = useAppStore().rentalProvider?.id;
@@ -15,9 +43,24 @@ function getServicePath() {
   return `rental-providers/${getRentalProviderId()}/inventory-items`;
 }
 
+async function configuredDeliveryPartnerOptions() {
+  const response = await Api.instance.service(`rental-providers/${getRentalProviderId()}/delivery-partners`).find({
+    query: {
+      $paginate: false,
+      $select: ['deliveryCompanyId', 'deliveryCompany.name'],
+    },
+  }) as any
+
+  const items = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : [])
+  return items.map((item: any) => ({
+    id: item.deliveryCompanyId,
+    name: item.deliveryCompany?.name || item.deliveryCompanyId,
+  }))
+}
+
 const trigger = () => $TG({
   title: 'Inventory',
-  selectFields: ['name', 'categoryLabel', 'dailyRateAmount', 'currency', 'totalInventory', 'minimumRentalDays', 'maximumRentalDays', 'status', 'enabled', 'isAvailable', 'createdAt'],
+  selectFields: ['id', 'name', 'categoryLabel', 'dailyRateAmount', 'currency', 'totalInventory', 'minimumRentalDays', 'maximumRentalDays', 'status', 'enabled', 'isAvailable', 'createdAt'],
   headers: [
     { title: 'Name', value: 'name' },
     { title: 'Category', value: 'categoryLabel' },
@@ -53,7 +96,23 @@ const createForm = () => {
     }),
     $FD({ label: 'Enabled', type: 'boolean', storage: 'enabled' }),
     $FD({ label: 'Available', type: 'boolean', storage: 'isAvailable' }),
+    $FD({ label: 'Supports Customer Pickup', type: 'boolean', storage: 'supportsCustomerPickup' }, {
+      default: () => useAppStore().rentalProvider?.supportsCustomerPickup ?? true,
+    }),
+    $FD({ label: 'Supports Self Delivery', type: 'boolean', storage: 'supportsSelfDelivery' }, {
+      default: () => useAppStore().rentalProvider?.supportsSelfDelivery ?? false,
+    }),
+    $FD({ label: 'Supports Third-Party Delivery', type: 'boolean', storage: 'supportsThirdPartyDelivery' }, {
+      default: () => useAppStore().rentalProvider?.supportsThirdPartyDelivery ?? false,
+    }),
+    $FD({ label: 'Supports Return Collection', type: 'boolean', storage: 'supportsReturnCollection' }, {
+      default: () => useAppStore().rentalProvider?.supportsReturnCollection ?? false,
+    }),
+    $FD({ label: 'Applicable Delivery Partners', type: 'select', storage: 'applicableDeliveryCompanyIds', multiple: true, cols: 12, hint: 'Leave empty to inherit all active rental delivery partners. Select specific partners only when an item needs delivery restrictions.' }, {
+      selectOptions: configuredDeliveryPartnerOptions,
+    }),
     $FD({ label: 'Image', type: 'image', storage: 'image' }),
+    rentalAttributesField(),
   ];
 
   return $FM({
@@ -76,6 +135,7 @@ const createForm = () => {
 
 export const rentalInventoryReport = () => $RP({
   title: 'Inventory Item',
+  sideButtonWidth: 260,
 }, {
   form: createForm,
   setup(report) {
@@ -103,6 +163,34 @@ export const rentalInventoryReport = () => $RP({
       },
     })(report);
   },
+  sideButtons: (_props, _context, report) => {
+    if (report.$params.mode === 'create') {
+      return []
+    }
+
+    const itemId = report.$master?.$get('id')
+    const rentalProviderId = useAppStore().rentalProvider?.id
+    if (!itemId || !rentalProviderId) {
+      return []
+    }
+
+    return [
+      $BN({ text: 'Manage Variants', icon: 'mdi-shape-outline', color: 'secondary' }, {
+        onClicked() {
+          const coll = rentalInventoryVariantsCollection(String(rentalProviderId), String(itemId))
+          coll.$params.mode = report.$params.mode
+          AppManager.showCollection(coll)
+        },
+      }),
+      $BN({ text: 'Manage Gallery', icon: 'mdi-image-multiple-outline', color: 'info' }, {
+        onClicked() {
+          const coll = rentalInventoryImagesCollection(String(rentalProviderId), String(itemId))
+          coll.$params.mode = report.$params.mode
+          AppManager.showCollection(coll)
+        },
+      }),
+    ]
+  },
   access: rentalAccess('rental.inventory.view'),
 });
 
@@ -113,3 +201,9 @@ export const rentalInventoryCollection = () => $COL({
   trigger,
   access: rentalAccess('rental.inventory.view'),
 });
+
+export const rentalInventoryMenu = () => makeCollectionMenu({
+  title: 'Catalog',
+  collection: rentalInventoryCollection,
+  access: rentalAccess('rental.inventory.view'),
+})
