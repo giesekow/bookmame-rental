@@ -1,9 +1,10 @@
 import { $MI, AppManager, Menu } from 'vuetify-extended';
-import { rentalAccess } from '../misc/access';
+import { rentalAccess, rentalHasAccess } from '../misc/access';
 import { RENTAL_DASHBOARD_WIDGET } from '../pages/dashboard';
 import { rentalDeliveryPartnersMenu } from '../pages/delivery-partners';
 import { rentalFinanceSummaryReport } from '../pages/finance-summary';
 import { rentalInventoryCollection, rentalInventoryMenu } from '../pages/inventory';
+import { rentalNotificationPreferencesReport } from '../pages/notification-preferences';
 import { rentalProfileReport } from '../pages/profile';
 import { rentalReservationsCollection } from '../pages/reservations';
 import { rentalRemittanceBatchesCollection, rentalSettlementBatchesCollection } from '../pages/settlement-batches';
@@ -54,12 +55,11 @@ export function buildHomeMenu() {
           text: 'Reservations',
           icon: 'mdi-calendar-clock-outline',
           shortcut: 'R',
-          action: 'function',
+          action: 'collection',
+          mode: 'display',
           color: 'info',
         }, {
-          callback: async () => {
-            AppManager.showCollection(rentalReservationsCollection());
-          },
+          collection: rentalReservationsCollection,
           access: rentalAccess('rental.reservations.view'),
         }),
         $MI({
@@ -73,15 +73,16 @@ export function buildHomeMenu() {
           access: rentalAccess('rental.finance.view'),
         }),
         $MI({
-          text: 'Profile',
-          icon: 'mdi-domain',
-          shortcut: 'P',
-          action: 'report',
-          mode: 'display',
+          text: 'Settings',
+          icon: 'mdi-cog-outline',
+          shortcut: 'S',
+          action: 'menu',
           color: 'warning',
         }, {
-          report: rentalProfileReport,
-          access: rentalAccess('rental.profile.view'),
+          menu: buildSettingsMenu,
+          access: async () =>
+            (await rentalHasAccess('rental.profile.view')) ||
+            (await rentalHasAccess('rental.notifications.view')),
         }),
       ],
     },
@@ -150,6 +151,40 @@ const buildFinanceMenu = () => new Menu(
       }, {
         collection: rentalSettlementHistoryCollection,
         access: rentalAccess('rental.finance.view'),
+      }),
+    ],
+  },
+);
+
+const buildSettingsMenu = () => new Menu(
+  {
+    title: 'Settings',
+    cols: 12,
+    width: 320,
+  },
+  {
+    children: async () => [
+      $MI({
+        text: 'Profile',
+        icon: 'mdi-domain',
+        shortcut: 'P',
+        action: 'report',
+        mode: 'display',
+        color: 'warning',
+      }, {
+        report: rentalProfileReport,
+        access: rentalAccess('rental.profile.view'),
+      }),
+      $MI({
+        text: 'Notifications',
+        icon: 'mdi-bell-ring-outline',
+        shortcut: 'N',
+        action: 'report',
+        mode: 'display',
+        color: 'info',
+      }, {
+        report: rentalNotificationPreferencesReport,
+        access: rentalAccess('rental.notifications.view'),
       }),
     ],
   },

@@ -24,6 +24,7 @@ export const RENTAL_PERMISSION_OPTIONS = [
   { id: 'rental.delivery_partners.manage', name: 'Delivery Partners' },
   { id: 'rental.reservations.view', name: 'Reservations' },
   { id: 'rental.finance.view', name: 'Finance' },
+  { id: 'rental.notifications.view', name: 'Notifications' },
 ];
 
 function currentUser(): CurrentUser | null {

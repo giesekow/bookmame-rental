@@ -7,7 +7,7 @@ const firebaseConfig = {
   projectId: 'bookmame',
   storageBucket: 'bookmame.firebasestorage.app',
   messagingSenderId: '38671540208',
-  appId: '1:38671540208:web:b5ae540cca3de7e8108735',
+  appId: '1:38671540208:web:e5af027e842cddb5108735',
 }
 
 if (firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.messagingSenderId && firebaseConfig.appId) {

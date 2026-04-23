@@ -1,4 +1,4 @@
-import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, Button, DialogForm, Dialogs, Report } from 'vuetify-extended';
+import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, AppManager, Button, DialogForm, Dialogs, Report } from 'vuetify-extended';
 import { ref, Ref } from 'vue';
 import { rentalAccess } from '../../misc/access';
 import { useAppStore } from '../../store/app';
@@ -49,9 +49,130 @@ function dateTime(value: unknown) {
   }).format(date);
 }
 
+function normalizeAttributes(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        const label = String((item as any)?.label || '').trim();
+        const attributeValue = String((item as any)?.value || '').trim();
+        if (!label || !attributeValue) {
+          return null;
+        }
+        return {
+          key: label.toLowerCase(),
+          label,
+          value: attributeValue,
+          sortOrder: typeof (item as any)?.sortOrder === 'number' ? (item as any).sortOrder : 100,
+        };
+      })
+      .filter(Boolean) as Array<{ key: string; label: string; value: string; sortOrder: number }>;
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([label, attributeValue], index) => {
+        const normalizedLabel = String(label || '').trim();
+        const normalizedValue = String(attributeValue ?? '').trim();
+        if (!normalizedLabel || !normalizedValue) {
+          return null;
+        }
+        return {
+          key: normalizedLabel.toLowerCase(),
+          label: normalizedLabel,
+          value: normalizedValue,
+          sortOrder: (index + 1) * 10,
+        };
+      })
+      .filter(Boolean) as Array<{ key: string; label: string; value: string; sortOrder: number }>;
+  }
+
+  return [];
+}
+
+function mergeAttributes(baseValue: unknown, variantValue: unknown) {
+  const items = new Map<string, { key: string; label: string; value: string; sortOrder: number }>();
+
+  for (const attribute of normalizeAttributes(baseValue)) {
+    items.set(attribute.key, attribute);
+  }
+
+  for (const attribute of normalizeAttributes(variantValue)) {
+    items.set(attribute.key, attribute);
+  }
+
+  return [...items.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
+}
+
+function renderAttributeSummary(baseValue: unknown, variantValue: unknown) {
+  const pairs = mergeAttributes(baseValue, variantValue);
+  if (!pairs.length) {
+    return '';
+  }
+
+  return `
+    <div style="margin-top:10px; display:grid; gap:8px;">
+      ${pairs.map((pair, index) => `
+        <div style="${index === 0 ? '' : 'padding-top:10px; border-top:1px solid rgba(133,101,71,0.14);'}">
+          <div style="font-size:11px; letter-spacing:.05em; text-transform:uppercase; font-weight:700; color:#8a7768; margin-bottom:4px;">${escapeHtml(pair.label)}</div>
+          <div style="font-size:13px; color:#241a14; word-break:break-word;">${escapeHtml(pair.value)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function rentalLedgerBeneficiaryLabel(reservation: any, line: any) {
+  const beneficiaryType = String(line?.beneficiaryType || '').trim().toLowerCase();
+  const beneficiaryId = String(line?.beneficiaryId || '').trim();
+
+  if (beneficiaryType === 'rental_provider') {
+    return useAppStore().rentalProvider?.name || 'Current provider';
+  }
+
+  if (beneficiaryType === 'delivery_company') {
+    if (beneficiaryId && beneficiaryId === String(reservation?.deliveryCompany?.id || '')) {
+      return reservation?.deliveryCompany?.name || 'Outbound delivery partner';
+    }
+
+    if (beneficiaryId && beneficiaryId === String(reservation?.returnDeliveryCompany?.id || '')) {
+      return reservation?.returnDeliveryCompany?.name || 'Return delivery partner';
+    }
+
+    return reservation?.deliveryCompany?.name || reservation?.returnDeliveryCompany?.name || 'Delivery company';
+  }
+
+  if (beneficiaryType === 'customer') {
+    const customerBits = [
+      reservation?.customerDisplayName || 'Customer',
+      reservation?.customerAccountId || '',
+    ].filter(Boolean);
+    return customerBits.join(' · ');
+  }
+
+  if (beneficiaryType === 'platform') {
+    return 'Bookmame Platform';
+  }
+
+  return beneficiaryId || String(line?.beneficiaryType || 'Unknown beneficiary');
+}
+
+function rentalLedgerBeneficiaryMeta(line: any) {
+  return String(line?.beneficiaryType || 'beneficiary').replace(/_/g, ' ');
+}
+
 function renderReservationHtml(reservation: any) {
   const deliveryTasks = Array.isArray(reservation?.deliveryTasks) ? reservation.deliveryTasks : [];
   const ledgerLines = Array.isArray(reservation?.ledgerLines) ? reservation.ledgerLines : [];
+  const itemName = reservation?.itemNameSnapshot || reservation?.rentalInventoryItem?.name || 'Inventory item';
+  const variantName = reservation?.variantNameSnapshot || reservation?.rentalInventoryVariant?.name || '';
+  const categoryLabel = reservation?.itemCategoryLabelSnapshot || reservation?.rentalInventoryItem?.categoryLabel || '';
+  const itemAttributes = typeof reservation?.itemAttributesSnapshot !== 'undefined'
+    ? reservation.itemAttributesSnapshot
+    : reservation?.rentalInventoryItem?.attributes;
+  const variantAttributes = typeof reservation?.variantAttributesSnapshot !== 'undefined'
+    ? reservation.variantAttributesSnapshot
+    : reservation?.rentalInventoryVariant?.attributes;
+
   return `
     <div style="font-family:inherit; color:#241a14; background:#fffaf5; border:1px solid #eadfcf; border-radius:18px; padding:18px;">
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:18px;">
@@ -68,9 +189,10 @@ function renderReservationHtml(reservation: any) {
         </div>
         <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
           <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Item</div>
-          <div style="font-weight:700;">${escapeHtml(reservation?.rentalInventoryItem?.name || 'Inventory item')}</div>
-          ${reservation?.rentalInventoryVariant?.name ? `<div style="margin-top:4px; color:#5f4e43;">Variant: ${escapeHtml(reservation.rentalInventoryVariant.name)}</div>` : ''}
-          ${reservation?.rentalInventoryItem?.categoryLabel ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(reservation.rentalInventoryItem.categoryLabel)}</div>` : ''}
+          <div style="font-weight:700;">${escapeHtml(itemName)}</div>
+          ${variantName ? `<div style="margin-top:4px; color:#5f4e43;">Variant: ${escapeHtml(variantName)}</div>` : ''}
+          ${categoryLabel ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(categoryLabel)}</div>` : ''}
+          ${renderAttributeSummary(itemAttributes, variantAttributes)}
           <div style="margin-top:4px; color:#5f4e43;">Qty: ${escapeHtml(reservation?.quantity || 1)}</div>
         </div>
         <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
@@ -166,7 +288,8 @@ function renderReservationHtml(reservation: any) {
               <div style="border:1px solid #eadfcf; border-radius:12px; padding:12px;">
                 <div style="font-weight:700;">${escapeHtml(line?.label || line?.entryType || 'Ledger line')}</div>
                 <div style="margin-top:4px; color:#5f4e43;">${escapeHtml(money(line?.amount, line?.currency || reservation?.currency))} · ${escapeHtml(String(line?.direction || 'credit'))}${line?.isRefundable ? ' · Refundable' : ''}</div>
-                ${(line?.beneficiaryType || line?.beneficiaryId) ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml([line.beneficiaryType, line.beneficiaryId].filter(Boolean).join(' · '))}</div>` : ''}
+                ${(line?.beneficiaryType || line?.beneficiaryId) ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(rentalLedgerBeneficiaryLabel(reservation, line))}</div>` : ''}
+                ${(line?.beneficiaryType || line?.beneficiaryId) ? `<div style="margin-top:4px; color:#8a7768; font-size:12px; text-transform:uppercase; letter-spacing:.05em;">${escapeHtml(rentalLedgerBeneficiaryMeta(line))}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -188,6 +311,40 @@ function renderReservationHtml(reservation: any) {
       ` : ''}
     </div>
   `;
+}
+
+const fulfillmentOptions = [
+  { id: 'customer_pickup', name: 'Customer pickup' },
+  { id: 'partner_delivery', name: 'Partner delivery' },
+  { id: 'third_party_delivery', name: 'Third-party delivery' },
+];
+
+const returnFulfillmentOptions = [
+  { id: 'return_by_customer', name: 'Return by customer' },
+  { id: 'partner_collection', name: 'Partner collection' },
+  { id: 'third_party_collection', name: 'Third-party collection' },
+];
+
+async function configuredDeliveryPartnerOptions() {
+  const response = await Api.instance.service(`rental-providers/${getRentalProviderId()}/delivery-partners`).find({
+    query: {
+      $paginate: false,
+      $select: ['deliveryCompanyId', 'deliveryCompany.name', 'status', 'priorityRank'],
+      $sort: {
+        priorityRank: 1,
+      },
+    },
+  }) as any;
+
+  const items = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
+  const normalized = items
+    .filter((item: any) => String(item?.status || 'active').trim().toLowerCase() === 'active')
+    .map((item: any) => ({
+      id: item.deliveryCompanyId,
+      name: item.deliveryCompany?.name || item.deliveryCompanyId,
+    }));
+
+  return [{ id: '', name: 'No delivery company selected' }, ...normalized];
 }
 
 async function refreshReport(report: Report) {
@@ -230,9 +387,47 @@ function reasonDialog(title: string, label: string, onSubmit: (reason: string) =
   return dialog;
 }
 
+function notesDialog(title: string, initialNotes: string, onSubmit: (notes: string) => Promise<void>) {
+  const dialog = new DialogForm({}, {
+    form() {
+      return $FM({
+        title,
+        width: 560,
+      }, {
+        children: () => [
+          $PT({}, {
+            children: () => [
+              $FD({
+                label: 'Notes',
+                storage: 'notes',
+                type: 'textarea',
+                required: false,
+                cols: 12,
+                hint: initialNotes
+                  ? `Current notes: ${initialNotes}`
+                  : 'Internal operational notes for this reservation.',
+              }),
+            ],
+          }),
+        ],
+        saved: async (form) => {
+          await onSubmit(String(form.$master?.$get('notes') || '').trim());
+          dialog.forceCancel();
+        },
+      });
+    },
+  });
+
+  return dialog;
+}
+
 function confirmButton(report: Report, statusRef: Ref<any>) {
   return $BN({ text: 'Confirm', color: 'success' }, {
     onClicked: async (button) => {
+      const confirmed = await Dialogs.$confirm('Are you sure you want to confirm this reservation?');
+      if (!confirmed) {
+        return;
+      }
       try {
         await patchReservation(String(button.$master?.$get('id') || ''), { reservationStatus: 'confirmed' });
         statusRef.value = 'confirmed';
@@ -249,6 +444,10 @@ function pickupButton(report: Report, statusRef: Ref<any>) {
   return $BN({ text: 'Mark Picked Up', color: 'primary' }, {
     onClicked: async (button) => {
       try {
+        const confirmed = await Dialogs.$confirm('Are you sure you want to mark this reservation as picked up?');
+        if (!confirmed) {
+          return;
+        }
         await patchReservation(String(button.$master?.$get('id') || ''), { reservationStatus: 'picked_up' });
         statusRef.value = 'picked_up';
         await refreshReport(report);
@@ -264,6 +463,10 @@ function returnButton(report: Report, statusRef: Ref<any>) {
   return $BN({ text: 'Mark Returned', color: 'secondary' }, {
     onClicked: async (button) => {
       try {
+        const confirmed = await Dialogs.$confirm('Are you sure you want to mark this reservation as returned?');
+        if (!confirmed) {
+          return;
+        }
         await patchReservation(String(button.$master?.$get('id') || ''), { reservationStatus: 'returned' });
         statusRef.value = 'returned';
         await refreshReport(report);
@@ -292,7 +495,7 @@ function cancelButton(report: Report, statusRef: Ref<any>) {
         }
       });
 
-      dialog.show();
+      AppManager.showDialog(dialog);
     },
   });
 }
@@ -314,7 +517,7 @@ function failButton(report: Report, statusRef: Ref<any>) {
         }
       });
 
-      dialog.show();
+      AppManager.showDialog(dialog);
     },
   });
 }
@@ -335,7 +538,7 @@ function refundDepositButton(report: Report) {
         }
       });
 
-      dialog.show();
+      AppManager.showDialog(dialog);
     },
   });
 }
@@ -390,14 +593,113 @@ function deductDepositButton(report: Report) {
         },
       });
 
-      dialog.show();
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
+function updateNotesButton(report: Report) {
+  return $BN({ text: 'Update Notes', color: 'info' }, {
+    onClicked: async (button) => {
+      const dialog = notesDialog(
+        'Update Reservation Notes',
+        String(button.$master?.$get('notes') || ''),
+        async (notes) => {
+          try {
+            await patchReservation(String(button.$master?.$get('id') || ''), { notes });
+            await refreshReport(report);
+            Dialogs.$success('Reservation notes updated.');
+          } catch (error: any) {
+            Dialogs.$error(error?.message || 'Failed to update notes.');
+          }
+        },
+      );
+
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
+function editReservationButton(report: Report) {
+  return $BN({ text: 'Edit Reservation', color: 'secondary' }, {
+    onClicked: async (button) => {
+      const current = button.$master?.$data || {};
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Edit Reservation',
+            width: 680,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({ label: 'Customer Email', storage: 'customerEmail', type: 'text', cols: 6, hint: current.customerEmail || 'Leave blank to keep current value.' }),
+                  $FD({ label: 'Customer Phone', storage: 'customerPhoneNumber', type: 'text', cols: 6, hint: current.customerPhoneNumber || 'Leave blank to keep current value.' }),
+                  $FD({ label: 'Fulfilment Method', storage: 'fulfillmentMethod', type: 'select', cols: 6, hint: `Current: ${String(current.fulfillmentMethod || 'customer_pickup').replace(/_/g, ' ')}` }, {
+                    selectOptions: async () => fulfillmentOptions,
+                  }),
+                  $FD({ label: 'Outbound Delivery Partner', storage: 'deliveryCompanyId', type: 'select', cols: 6, hint: current.deliveryCompany?.name ? `Current: ${current.deliveryCompany.name}` : 'Only used for third-party delivery.' }, {
+                    selectOptions: configuredDeliveryPartnerOptions,
+                  }),
+                  $FD({ label: 'Return Method', storage: 'returnFulfillmentMethod', type: 'select', cols: 6, hint: `Current: ${String(current.returnFulfillmentMethod || 'return_by_customer').replace(/_/g, ' ')}` }, {
+                    selectOptions: async () => returnFulfillmentOptions,
+                  }),
+                  $FD({ label: 'Return Delivery Partner', storage: 'returnDeliveryCompanyId', type: 'select', cols: 6, hint: current.returnDeliveryCompany?.name ? `Current: ${current.returnDeliveryCompany.name}` : 'Only used for third-party collection.' }, {
+                    selectOptions: configuredDeliveryPartnerOptions,
+                  }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              const fulfillmentMethod = String(form.$master?.$get('fulfillmentMethod') || current.fulfillmentMethod || 'customer_pickup');
+              const returnFulfillmentMethod = String(form.$master?.$get('returnFulfillmentMethod') || current.returnFulfillmentMethod || 'return_by_customer');
+              const deliveryCompanyId = fulfillmentMethod === 'third_party_delivery'
+                ? String(form.$master?.$get('deliveryCompanyId') || '')
+                : '';
+              const returnDeliveryCompanyId = returnFulfillmentMethod === 'third_party_collection'
+                ? String(form.$master?.$get('returnDeliveryCompanyId') || '')
+                : '';
+
+              try {
+                await patchReservation(String(button.$master?.$get('id') || ''), {
+                  customerEmail: String(form.$master?.$get('customerEmail') || '').trim() || current.customerEmail || undefined,
+                  customerPhoneNumber: String(form.$master?.$get('customerPhoneNumber') || '').trim() || current.customerPhoneNumber || undefined,
+                  fulfillmentMethod,
+                  deliveryCompanyId: deliveryCompanyId || null,
+                  returnFulfillmentMethod,
+                  returnDeliveryCompanyId: returnDeliveryCompanyId || null,
+                });
+                dialog.forceCancel();
+                await refreshReport(report);
+                Dialogs.$success('Reservation details updated.');
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to update reservation.');
+              }
+            },
+          });
+        },
+      });
+
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
+function refreshButton(report: Report) {
+  return $BN({ text: 'Refresh', color: 'secondary' }, {
+    onClicked: async () => {
+      try {
+        await refreshReport(report);
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Failed to refresh reservation.');
+      }
     },
   });
 }
 
 const trigger = () => $TG({
   title: 'Reservations',
-  selectFields: ['reservationNumber', 'customerDisplayName', 'fulfillmentMethod', 'startDate', 'endDate', 'totalAmount', 'currency', 'paymentStatus', 'reservationStatus', 'createdAt'],
+  selectFields: ['id','reservationNumber', 'customerDisplayName', 'fulfillmentMethod', 'startDate', 'endDate', 'totalAmount', 'currency', 'paymentStatus', 'reservationStatus', 'createdAt'],
   headers: [
     { title: 'Reservation', value: 'reservationNumber' },
     { title: 'Customer', value: 'customerDisplayName' },
@@ -441,6 +743,13 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
     const statusRef: Ref<any> = ref(report.$master?.$get('reservationStatus'));
     const paymentStatus = String(report.$master?.$get('paymentStatus') || 'pending');
     const buttons: Button[] = [];
+
+    buttons.push(refreshButton(report));
+    buttons.push(updateNotesButton(report));
+
+    if (['requested', 'confirmed'].includes(String(statusRef.value || '').trim().toLowerCase())) {
+      buttons.push(editReservationButton(report));
+    }
 
     if (paymentStatus === 'paid' && statusRef.value === 'requested') {
       buttons.push(confirmButton(report, statusRef));

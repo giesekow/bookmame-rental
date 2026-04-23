@@ -9,6 +9,7 @@ import { Api } from 'vuetify-extended';
 import { initializeBootstrap } from './bootstrap';
 import { createAccessDeniedScreen, createPlainScreen } from './app';
 import { initializeMailbox } from './mailbox';
+import { initializeWebPush, unregisterCurrentPushDevice } from './push/web-push';
 import store from './store';
 import { useAppStore } from './store/app';
 
@@ -34,8 +35,10 @@ const Root = defineComponent({
 
       if (hasAccess) {
         initializeMailbox();
+        void initializeWebPush();
         void appStore.initializeRentalProvider();
       } else {
+        void unregisterCurrentPushDevice();
         void appStore.logout();
       }
     });
