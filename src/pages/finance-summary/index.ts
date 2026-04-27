@@ -8,7 +8,7 @@ let activeRentalFinanceReport: any = null
 let rentalFinancePaginationInitialized = false
 
 function summaryCardStyle(label: string) {
-  if (label === 'Ready For Payout' || label === 'Ready For Remittance') {
+  if (label === 'Ready For Payout' || label === 'Ready For Remittance' || label === 'Ready for Manual Payout') {
     return {
       background: '#fff8dd',
       border: '#ebd58c',
@@ -16,7 +16,7 @@ function summaryCardStyle(label: string) {
     }
   }
 
-  if (label === 'Net Settlement Position') {
+  if (label === 'Net Settlement Position' || label === 'Net Ready for Payout') {
     return {
       background: '#e7f7ef',
       border: '#a8d9be',
@@ -143,7 +143,9 @@ function renderSummary(summary: any, pagination: ReturnType<typeof buildPaginati
     ['Ready For Remittance', money(summary?.readyForManualRemittanceAmount, summary?.currency)],
     ['Remittance Initiated', money(summary?.remittanceInitiatedAmount, summary?.currency)],
     ['Remittance Received', money(summary?.remittanceReceivedAmount, summary?.currency)],
-    ['Net Settlement Position', money(summary?.netSettlementPosition, summary?.currency)],
+    ['Net Settlement Position', money(Number(summary?.outstandingPayableAmount ?? 0) - Number(summary?.outstandingRemittanceAmount ?? 0), summary?.currency)],
+    ['Ready for Manual Payout', money(summary?.readyForManualPayoutAmount, summary?.currency)],
+    ['Net Ready for Payout', money(Math.max(0, Number(summary?.readyForManualPayoutAmount ?? 0) - Number(summary?.outstandingRemittanceAmount ?? 0)), summary?.currency)],
   ]
 
   return `
@@ -257,38 +259,60 @@ function initializeFinancePagination() {
 
 async function loadFinanceDetail(report: any) {
   const master = report?.$master
-  if (!master) {
-    return
-  }
-
+  if (!master) return
+  const summaryId = master.$get('id')
   const currentState = master.$get('detailState', master.$data || {}) || {}
   const itemsPerPage = PAGINATION_OPTIONS.includes(Number(master.$get('itemsPerPage', currentState.itemsPerPage || 5)))
     ? Number(master.$get('itemsPerPage', currentState.itemsPerPage || 5))
     : 5
   const pageNumber = Math.max(1, Number(master.$get('pageNumber', currentState.pageNumber || 1)) || 1)
-  const currency = String(master.$get('currency') || useAppStore().rentalProvider?.defaultCurrencyCode || '').trim().toUpperCase()
+  let resolvedSummaryId = summaryId
 
-  try {
-    const summary = await Api.instance.service(servicePath()).find({
-      query: {
-        $limit: itemsPerPage,
-        $skip: (pageNumber - 1) * itemsPerPage,
-        ...(currency ? { currency } : {}),
-      },
-    })
-    master.$set('currency', summary?.currency || currency || '')
-    master.$set('detailState', { ...summary, itemsPerPage, pageNumber })
-  } catch (error: any) {
-    Dialogs.$error(error?.message || 'Unable to load rental finance summary.')
+  if (!resolvedSummaryId) {
+    try {
+      const response = await Api.instance.service(servicePath()).find({
+        $limit: 1,
+        $skip: 0,
+      })
+      const items = Array.isArray(response) ? response : Array.isArray(response?.data) ? response.data : []
+      const first = items[0]
+
+      if (first?.id) {
+        resolvedSummaryId = first.id
+        master.$set('id', first.id)
+        master.$set('beneficiaryId', first.beneficiaryId)
+        master.$set('beneficiaryName', first.beneficiaryName)
+        master.$set('currency', first.currency)
+      }
+    } catch (error: any) {
+      Dialogs.$error(error.message)
+      master.$set('detailState', { ...currentState, itemsPerPage, pageNumber })
+      refreshFinanceDetail(report)
+      return
+    }
+  }
+
+  if (!resolvedSummaryId) {
     master.$set('detailState', {
       ...currentState,
       beneficiaryName: useAppStore().rentalProvider?.name || 'Rental Provider',
-      currency: currency || currentState?.currency,
       itemsPerPage,
       pageNumber,
       settlements: [],
       settlementTotal: 0,
     })
+    refreshFinanceDetail(report)
+    return
+  }
+
+  try {
+    const detail = await Api.instance.service(servicePath()).get(resolvedSummaryId, {
+      $limit: itemsPerPage,
+      $skip: (pageNumber - 1) * itemsPerPage,
+    })
+    master.$set('detailState', { ...detail, itemsPerPage, pageNumber })
+  } catch (error: any) {
+    Dialogs.$error(error.message)
   }
 
   refreshFinanceDetail(report)

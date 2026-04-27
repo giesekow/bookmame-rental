@@ -273,6 +273,8 @@ function renderReservationHtml(reservation: any) {
               <div style="border:1px solid #eadfcf; border-radius:12px; padding:12px;">
                 <div style="font-weight:700;">${escapeHtml(String(task.direction || '').replace(/_/g, ' '))} · ${escapeHtml(String(task.status || '').replace(/_/g, ' '))}</div>
                 <div style="margin-top:4px; color:#5f4e43;">${escapeHtml(task?.deliveryCompany?.name || 'Delivery partner')} · ${escapeHtml(money(task?.feeAmount, task?.currency || reservation?.currency))}</div>
+                ${task?.pickupHandoffStatus ? `<div style="margin-top:4px; color:#5f4e43;">Pickup handoff: ${escapeHtml(String(task.pickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}${task?.pickupHandoffCode && String(task.pickupHandoffStatus || '') === 'requested' ? ` · Rider PIN ${escapeHtml(task.pickupHandoffCode)}` : ''}</div>` : ''}
+                ${task?.deliveryConfirmationStatus ? `<div style="margin-top:4px; color:#5f4e43;">Delivery confirmation: ${escapeHtml(String(task.deliveryConfirmationStatus || 'not_requested').replace(/_/g, ' '))}${task?.deliveryConfirmationCode && String(task.deliveryConfirmationStatus || '') === 'requested' ? ` · PIN ${escapeHtml(task.deliveryConfirmationCode)}` : ''}</div>` : ''}
                 ${task?.addressLine1 ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml([task.addressLine1, task.addressLine2, task.landmark].filter(Boolean).join(', '))}</div>` : ''}
               </div>
             `).join('')}
@@ -347,14 +349,30 @@ async function configuredDeliveryPartnerOptions() {
   return [{ id: '', name: 'No delivery company selected' }, ...normalized];
 }
 
+export async function updateRentalReservationView(master: any) {
+  await master?.$load?.();
+  master?.$set?.('reservationDetails', renderReservationHtml(master?.$data || {}));
+}
+
 async function refreshReport(report: Report) {
-  await report.$master?.$load();
-  report.$master?.$set('reservationDetails', renderReservationHtml(report.$master?.$data || {}));
+  await updateRentalReservationView(report.$master);
   report.forceRender();
 }
 
 async function patchReservation(reservationId: string, data: Record<string, unknown>) {
   await Api.instance.service(getServicePath()).patch(reservationId, data);
+}
+
+function outboundTask(reservation: any) {
+  return (Array.isArray(reservation?.deliveryTasks) ? reservation.deliveryTasks : []).find((task: any) =>
+    String(task?.direction || '').trim().toLowerCase() === 'outbound',
+  ) || null;
+}
+
+function returnTask(reservation: any) {
+  return (Array.isArray(reservation?.deliveryTasks) ? reservation.deliveryTasks : []).find((task: any) =>
+    String(task?.direction || '').trim().toLowerCase() === 'return',
+  ) || null;
 }
 
 function reasonDialog(title: string, label: string, onSubmit: (reason: string) => Promise<void>) {
@@ -454,6 +472,94 @@ function pickupButton(report: Report, statusRef: Ref<any>) {
         Dialogs.$success('Reservation marked picked up.');
       } catch (error: any) {
         Dialogs.$error(error?.message || 'Failed to update reservation.');
+      }
+    },
+  });
+}
+
+function requestOutboundPickupHandoffButton(report: Report) {
+  return $BN({ text: 'Ready for Pickup', color: 'primary' }, {
+    onClicked: async (button) => {
+      const task = outboundTask(button.$master?.$data || {});
+      if (!task?.id) {
+        Dialogs.$error('No outbound delivery task is available for this reservation.');
+        return;
+      }
+      try {
+        const confirmed = await Dialogs.$confirm('Generate a rider pickup PIN and notify the assigned rider?', 'Start Pickup Handoff');
+        if (!confirmed) {
+          return;
+        }
+        await Api.instance.service(`rental-providers/${getRentalProviderId()}/delivery-tasks/${task.id}/pickup-handoff/request`).create({});
+        await refreshReport(report);
+        Dialogs.$success('Pickup handoff started.');
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Failed to start pickup handoff.');
+      }
+    },
+  });
+}
+
+function confirmOutboundPickupPinButton(report: Report) {
+  return $BN({ text: 'Confirm Pickup PIN', color: 'success' }, {
+    onClicked: async (button) => {
+      const task = outboundTask(button.$master?.$data || {});
+      if (!task?.id) {
+        Dialogs.$error('No outbound delivery task is available for this reservation.');
+        return;
+      }
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Confirm Pickup PIN',
+            width: 420,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({ label: 'Rider PIN', storage: 'confirmationCode', type: 'text', required: true }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              try {
+                await Api.instance.service(`rental-providers/${getRentalProviderId()}/delivery-tasks/${task.id}/pickup-handoff/confirm`).create({
+                  confirmationCode: String(form.$master?.$get('confirmationCode') || '').trim(),
+                });
+                await refreshReport(report);
+                Dialogs.$success('Pickup handoff confirmed.');
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to confirm pickup PIN.');
+              }
+            },
+          });
+        },
+      });
+
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
+function confirmReturnedItemButton(report: Report) {
+  return $BN({ text: 'Accept Returned Item', color: 'success' }, {
+    onClicked: async (button) => {
+      const task = returnTask(button.$master?.$data || {});
+      if (!task?.id) {
+        Dialogs.$error('No return delivery task is available for this reservation.');
+        return;
+      }
+      try {
+        const confirmed = await Dialogs.$confirm('Confirm that the returned rental item has been received back from the rider?', 'Accept Returned Item');
+        if (!confirmed) {
+          return;
+        }
+        await Api.instance.service(`rental-providers/${getRentalProviderId()}/delivery-tasks/${task.id}/delivery/confirm`).create({});
+        await refreshReport(report);
+        Dialogs.$success('Returned item accepted.');
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Failed to confirm the returned item.');
       }
     },
   });
@@ -712,7 +818,20 @@ const trigger = () => $TG({
     { title: 'Status', value: 'reservationStatus' },
     { title: 'Created', value: 'createdAt' },
   ],
-}, {});
+}, {
+  format(trigger, items) {
+    for (const item of items) {
+      item.startDate = dateTime(item.startDate);
+      item.endDate = dateTime(item.endDate);
+      item.createdAt = dateTime(item.createdAt);
+      item.fulfillmentMethod = String(item.fulfillmentMethod || 'customer_pickup').replace(/_/g, ' ');
+      item.paymentStatus = String(item.paymentStatus || 'pending').replace(/_/g, ' ');
+      item.reservationStatus = String(item.reservationStatus || 'requested').replace(/_/g, ' ');
+      item.totalAmount = money(item.totalAmount, item.currency);
+    }
+    return items;
+  },
+});
 
 const createForm = () => $FM({
   title: 'Reservation',
@@ -734,7 +853,11 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
   ...(reservationId ? { objectId: reservationId, objectType: getServicePath() } : {}),
 }, {
   form: createForm,
+  setup(report) {
+    report.$set('isRentalReservationView', true);
+  },
   loaded: async (report) => {
+    report.$set('isRentalReservationView', true);
     if (report.$master?.$get('id')) {
       await refreshReport(report);
     }
@@ -742,6 +865,9 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
   sideButtons: (_props, _ctx, report) => {
     const statusRef: Ref<any> = ref(report.$master?.$get('reservationStatus'));
     const paymentStatus = String(report.$master?.$get('paymentStatus') || 'pending');
+    const reservation = report.$master?.$data || {};
+    const outbound = outboundTask(reservation);
+    const inboundReturn = returnTask(reservation);
     const buttons: Button[] = [];
 
     buttons.push(refreshButton(report));
@@ -755,12 +881,42 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
       buttons.push(confirmButton(report, statusRef));
     }
 
-    if (paymentStatus === 'paid' && statusRef.value === 'confirmed') {
+    if (
+      paymentStatus === 'paid' &&
+      statusRef.value === 'confirmed' &&
+      String(reservation.fulfillmentMethod || '').trim().toLowerCase() === 'customer_pickup'
+    ) {
       buttons.push(pickupButton(report, statusRef));
     }
 
-    if (paymentStatus === 'paid' && statusRef.value === 'picked_up') {
+    if (
+      paymentStatus === 'paid' &&
+      statusRef.value === 'confirmed' &&
+      outbound?.id &&
+      String(outbound?.status || '').trim().toLowerCase() === 'assigned'
+    ) {
+      if (String(outbound?.pickupHandoffStatus || 'not_requested').trim().toLowerCase() === 'not_requested') {
+        buttons.push(requestOutboundPickupHandoffButton(report));
+      }
+      if (String(outbound?.pickupHandoffStatus || '').trim().toLowerCase() === 'requested') {
+        buttons.push(confirmOutboundPickupPinButton(report));
+      }
+    }
+
+    if (
+      paymentStatus === 'paid' &&
+      statusRef.value === 'picked_up' &&
+      String(reservation.returnFulfillmentMethod || '').trim().toLowerCase() === 'return_by_customer'
+    ) {
       buttons.push(returnButton(report, statusRef));
+    }
+
+    if (
+      inboundReturn?.id &&
+      String(inboundReturn?.status || '').trim().toLowerCase() === 'picked_up' &&
+      String(inboundReturn?.deliveryConfirmationStatus || '').trim().toLowerCase() === 'requested'
+    ) {
+      buttons.push(confirmReturnedItemButton(report));
     }
 
     const depositAmount = Number(report.$master?.$get('securityDepositHeldAmount') || report.$master?.$get('securityDepositAmount') || 0);
