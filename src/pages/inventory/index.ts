@@ -3,6 +3,7 @@ import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, AppManager, Field, Part } from
 import { rentalAccess } from '../../misc/access';
 import { rentalInventoryImagesCollection } from '../inventory-images';
 import { rentalInventoryVariantsCollection } from '../inventory-variants';
+import { openRentalInventoryCalendar } from '../inventory-calendar';
 import { useAppStore } from '../../store/app';
 import { makeCollectionMenu } from '../../misc/menu';
 
@@ -23,6 +24,29 @@ function rentalAttributesField(storage = 'attributes', label = 'Item Attributes'
               $FD({ label: 'Label', storage: 'label', type: 'text', required: true }),
               $FD({ label: 'Value', storage: 'value', type: 'text', required: true }),
               $FD({ label: 'Sort Order', storage: 'sortOrder', type: 'integer' }),
+            ],
+          }),
+        ],
+      })
+    },
+  })
+}
+
+function rentalDepositTiersField(storage = 'securityDepositTiers', label = 'Deposit Tiers') {
+  return $FD({ label, storage, type: 'collection', cols: 12, hint: 'Use ascending "up to quantity" rows. Leave "Up To Quantity" empty on the final row to mean any quantity above the previous tier.' }, {
+    headers() {
+      return [
+        { title: 'Up To Quantity', value: 'quantityUpTo' },
+        { title: 'Deposit Amount', value: 'depositAmount' },
+      ]
+    },
+    form() {
+      return $FM({}, {
+        children: () => [
+          $PT({}, {
+            children: () => [
+              $FD({ label: 'Up To Quantity', storage: 'quantityUpTo', type: 'integer', hint: 'Leave empty on the last row for any quantity above the previous tier.' }),
+              $FD({ label: 'Deposit Amount', storage: 'depositAmount', type: 'integer', required: true, hint: 'Minor unit amount.' }),
             ],
           }),
         ],
@@ -88,6 +112,7 @@ const createForm = () => {
       default: () => useAppStore().rentalProvider?.defaultCurrencyCode,
     }),
     $FD({ label: 'Total Inventory', type: 'integer', storage: 'totalInventory', required: true }),
+    rentalDepositTiersField(),
     $FD({ label: 'Minimum Rental Days', type: 'integer', storage: 'minimumRentalDays' }),
     $FD({ label: 'Maximum Rental Days', type: 'integer', storage: 'maximumRentalDays' }),
     $FD({ label: 'Sort Order', type: 'integer', storage: 'sortOrder' }),
@@ -175,6 +200,11 @@ export const rentalInventoryReport = () => $RP({
     }
 
     return [
+      $BN({ text: 'Inventory Calendar', icon: 'mdi-calendar-blank-outline', color: 'primary' }, {
+        onClicked() {
+          openRentalInventoryCalendar(String(itemId))
+        },
+      }),
       $BN({ text: 'Manage Variants', icon: 'mdi-shape-outline', color: 'secondary' }, {
         onClicked() {
           const coll = rentalInventoryVariantsCollection(String(rentalProviderId), String(itemId))

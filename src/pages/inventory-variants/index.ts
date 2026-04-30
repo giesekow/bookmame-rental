@@ -31,6 +31,29 @@ function variantAttributesField(storage = 'attributes', label = 'Variant Attribu
   })
 }
 
+function variantDepositTiersField(storage = 'securityDepositTiers', label = 'Variant Deposit Tiers') {
+  return $FD({ label, storage, type: 'collection', cols: 12, hint: 'Optional override tiers for this variant. Leave "Up To Quantity" empty on the final row to cover any quantity above the previous tier.' }, {
+    headers() {
+      return [
+        { title: 'Up To Quantity', value: 'quantityUpTo' },
+        { title: 'Deposit Amount', value: 'depositAmount' },
+      ]
+    },
+    form() {
+      return $FM({}, {
+        children: () => [
+          $PT({}, {
+            children: () => [
+              $FD({ label: 'Up To Quantity', storage: 'quantityUpTo', type: 'integer', hint: 'Leave empty on the last row for any quantity above the previous tier.' }),
+              $FD({ label: 'Deposit Amount', storage: 'depositAmount', type: 'integer', required: true, hint: 'Minor unit amount.' }),
+            ],
+          }),
+        ],
+      })
+    },
+  })
+}
+
 export const rentalInventoryVariantsReport = (rentalProviderId: string, itemId: string) => $RP({
   title: 'Inventory Variant',
   objectType: servicePath(rentalProviderId, itemId),
@@ -50,6 +73,7 @@ export const rentalInventoryVariantsReport = (rentalProviderId: string, itemId: 
           $FD({ label: 'Available', type: 'boolean', storage: 'isAvailable' }),
           $FD({ label: 'Variant Daily Rate Amount', type: 'integer', storage: 'dailyRateAmount', hint: 'Leave empty to inherit the base item daily rate.' }),
           $FD({ label: 'Variant Security Deposit Amount', type: 'integer', storage: 'securityDepositAmount', hint: 'Leave empty to inherit the base item security deposit.' }),
+          variantDepositTiersField(),
           $FD({ label: 'Variant Inventory', type: 'integer', storage: 'totalInventory', required: true }),
           $FD({ label: 'Sort Order', type: 'integer', storage: 'sortOrder' }),
           $FD({ label: 'Variant Image', type: 'image', storage: 'image' }),

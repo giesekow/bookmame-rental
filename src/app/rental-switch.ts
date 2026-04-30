@@ -15,6 +15,7 @@ export const createRentalSwitchSelector = async () => {
       if (switched) {
         currentSelector.forceCancel();
         AppManager.reload();
+        location.reload()
       }
     },
     load: async () => {

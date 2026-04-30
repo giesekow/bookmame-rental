@@ -49,6 +49,17 @@ function dateTime(value: unknown) {
   }).format(date);
 }
 
+function formatDateInput(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function todayDateInput() {
+  return formatDateInput(new Date());
+}
+
 function normalizeAttributes(value: unknown) {
   if (Array.isArray(value)) {
     return value
@@ -163,6 +174,7 @@ function rentalLedgerBeneficiaryMeta(line: any) {
 function renderReservationHtml(reservation: any) {
   const deliveryTasks = Array.isArray(reservation?.deliveryTasks) ? reservation.deliveryTasks : [];
   const ledgerLines = Array.isArray(reservation?.ledgerLines) ? reservation.ledgerLines : [];
+  const depositRefunds = Array.isArray(reservation?.depositRefunds) ? reservation.depositRefunds : [];
   const itemName = reservation?.itemNameSnapshot || reservation?.rentalInventoryItem?.name || 'Inventory item';
   const variantName = reservation?.variantNameSnapshot || reservation?.rentalInventoryVariant?.name || '';
   const categoryLabel = reservation?.itemCategoryLabelSnapshot || reservation?.rentalInventoryItem?.categoryLabel || '';
@@ -198,12 +210,15 @@ function renderReservationHtml(reservation: any) {
         <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
           <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Amount</div>
           <div style="font-weight:700;">${escapeHtml(money(reservation?.totalAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Payable now: ${escapeHtml(money(reservation?.paymentPayableAmount, reservation?.currency))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Subtotal: ${escapeHtml(money(reservation?.subtotalAmount, reservation?.currency))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Outbound delivery: ${escapeHtml(money(reservation?.outboundDeliveryFeeAmount, reservation?.currency))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Return collection: ${escapeHtml(money(reservation?.returnDeliveryFeeAmount, reservation?.currency))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Deposit: ${escapeHtml(money(reservation?.securityDepositAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Deposit collection: ${escapeHtml(String(reservation?.securityDepositCollectionMethod || 'not_required').replace(/_/g, ' '))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Deposit status: ${escapeHtml(String(reservation?.securityDepositStatus || 'not_required').replace(/_/g, ' '))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Deposit held: ${escapeHtml(money(reservation?.securityDepositHeldAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:#5f4e43;">Deposit collected: ${escapeHtml(money(reservation?.securityDepositCollectedAmount, reservation?.currency))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Deposit deducted: ${escapeHtml(money(reservation?.securityDepositDeductedAmount, reservation?.currency))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Deposit refunded: ${escapeHtml(money(reservation?.securityDepositRefundedAmount, reservation?.currency))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Service charge: ${escapeHtml(money(reservation?.serviceChargeAmount, reservation?.currency))}</div>
@@ -224,14 +239,17 @@ function renderReservationHtml(reservation: any) {
           <div style="margin-top:4px; color:#5f4e43;">Payment: ${escapeHtml(String(reservation?.paymentStatus || 'pending').replace(/_/g, ' '))}</div>
           <div style="margin-top:4px; color:#5f4e43;">Method: ${escapeHtml(String(reservation?.paymentMethod || 'n/a').replace(/_/g, ' '))}</div>
           ${reservation?.paymentProvider ? `<div style="margin-top:4px; color:#5f4e43;">Provider: ${escapeHtml(String(reservation.paymentProvider).replace(/_/g, ' '))}</div>` : ''}
+          ${reservation?.paymentProviderOrderId ? `<div style="margin-top:4px; color:#5f4e43;">Provider Order ID: ${escapeHtml(reservation.paymentProviderOrderId)}</div>` : ''}
           ${reservation?.paymentReference ? `<div style="margin-top:4px; color:#5f4e43;">Reference: ${escapeHtml(reservation.paymentReference)}</div>` : ''}
         </div>
         <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
           <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Fulfilment</div>
           <div style="font-weight:700;">${escapeHtml(String(reservation?.fulfillmentMethod || 'customer_pickup').replace(/_/g, ' '))}</div>
           ${reservation?.deliveryCompany?.name ? `<div style="margin-top:4px; color:#5f4e43;">Outbound: ${escapeHtml(reservation.deliveryCompany.name)}</div>` : ''}
+          ${reservation?.fulfillmentMethod === 'customer_pickup' ? `<div style="margin-top:4px; color:#5f4e43;">Customer pickup handoff: ${escapeHtml(String(reservation?.customerPickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.customerPickupHandoffCode && String(reservation?.customerPickupHandoffStatus || '') === 'requested' ? ` · PIN ${escapeHtml(reservation.customerPickupHandoffCode)}` : ''}</div>` : ''}
           <div style="margin-top:4px; color:#5f4e43;">Return: ${escapeHtml(String(reservation?.returnFulfillmentMethod || 'return_by_customer').replace(/_/g, ' '))}</div>
           ${reservation?.returnDeliveryCompany?.name ? `<div style="margin-top:4px; color:#5f4e43;">Return partner: ${escapeHtml(reservation.returnDeliveryCompany.name)}</div>` : ''}
+          ${reservation?.returnFulfillmentMethod === 'return_by_customer' ? `<div style="margin-top:4px; color:#5f4e43;">Direct return handoff: ${escapeHtml(String(reservation?.customerReturnHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.customerReturnHandoffCode && String(reservation?.customerReturnHandoffStatus || '') === 'requested' ? ` · PIN ${escapeHtml(reservation.customerReturnHandoffCode)}` : ''}</div>` : ''}
         </div>
       </div>
 
@@ -260,8 +278,28 @@ function renderReservationHtml(reservation: any) {
         <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
           <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Deposit Resolution</div>
           ${reservation?.securityDepositResolutionReason ? `<div style="color:#5f4e43; margin-top:4px;">Reason: ${escapeHtml(reservation.securityDepositResolutionReason)}</div>` : ''}
+          ${reservation?.securityDepositCollectionReference ? `<div style="color:#5f4e43; margin-top:4px;">Collection Reference: ${escapeHtml(reservation.securityDepositCollectionReference)}</div>` : ''}
           ${reservation?.securityDepositRefundReference ? `<div style="color:#5f4e43; margin-top:4px;">Refund Reference: ${escapeHtml(reservation.securityDepositRefundReference)}</div>` : ''}
           ${reservation?.securityDepositResolvedAt ? `<div style="color:#5f4e43; margin-top:4px;">Resolved At: ${escapeHtml(dateTime(reservation.securityDepositResolvedAt))}</div>` : ''}
+        </div>
+      ` : ''}
+
+      ${depositRefunds.length ? `
+        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:10px;">Deposit Refund Activity</div>
+          <div style="display:grid; gap:10px;">
+            ${depositRefunds.map((refund: any) => `
+              <div style="padding:12px; border:1px solid #eadfcf; border-radius:12px;">
+                <div style="font-weight:700; color:#241a14;">${escapeHtml(String(refund?.status || 'pending').replace(/_/g, ' '))}</div>
+                <div style="margin-top:4px; color:#5f4e43;">Requested: ${escapeHtml(money(refund?.requestedAmount, refund?.currency || reservation?.currency))}</div>
+                ${Number(refund?.refundedAmount || 0) > 0 ? `<div style="margin-top:4px; color:#5f4e43;">Refunded: ${escapeHtml(money(refund?.refundedAmount, refund?.currency || reservation?.currency))}</div>` : ''}
+                ${refund?.provider ? `<div style="margin-top:4px; color:#5f4e43;">Provider: ${escapeHtml(String(refund.provider).replace(/_/g, ' '))}</div>` : ''}
+                ${refund?.providerMessage ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(refund.providerMessage)}</div>` : ''}
+                ${refund?.manualReference ? `<div style="margin-top:4px; color:#5f4e43;">Reference: ${escapeHtml(refund.manualReference)}</div>` : ''}
+                ${refund?.createdAt ? `<div style="margin-top:4px; color:#5f4e43;">Logged: ${escapeHtml(dateTime(refund.createdAt))}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
         </div>
       ` : ''}
 
@@ -458,21 +496,61 @@ function confirmButton(report: Report, statusRef: Ref<any>) {
   });
 }
 
-function pickupButton(report: Report, statusRef: Ref<any>) {
-  return $BN({ text: 'Mark Picked Up', color: 'primary' }, {
+function requestCustomerPickupButton(report: Report) {
+  return $BN({ text: 'Ready for Pickup', color: 'primary' }, {
     onClicked: async (button) => {
       try {
-        const confirmed = await Dialogs.$confirm('Are you sure you want to mark this reservation as picked up?');
+        const confirmed = await Dialogs.$confirm(
+          'Generate a customer pickup PIN and let the customer confirm receipt or share the PIN at handoff?',
+          'Start Customer Pickup',
+        );
         if (!confirmed) {
           return;
         }
-        await patchReservation(String(button.$master?.$get('id') || ''), { reservationStatus: 'picked_up' });
-        statusRef.value = 'picked_up';
+        await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${String(button.$master?.$get('id') || '')}/customer-pickup/request`).create({});
         await refreshReport(report);
-        Dialogs.$success('Reservation marked picked up.');
+        Dialogs.$success('Customer pickup handoff started.');
       } catch (error: any) {
-        Dialogs.$error(error?.message || 'Failed to update reservation.');
+        Dialogs.$error(error?.message || 'Failed to start customer pickup.');
       }
+    },
+  });
+}
+
+function confirmCustomerPickupPinButton(report: Report) {
+  return $BN({ text: 'Confirm Pickup PIN', color: 'success' }, {
+    onClicked: async (button) => {
+      const reservationId = String(button.$master?.$get('id') || '');
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Confirm Customer Pickup PIN',
+            width: 420,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({ label: 'Customer PIN', storage: 'confirmationCode', type: 'text', required: true }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              try {
+                await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${reservationId}/customer-pickup/confirm`).create({
+                  confirmationCode: String(form.$master?.$get('confirmationCode') || '').trim(),
+                });
+                await refreshReport(report);
+                Dialogs.$success('Customer pickup confirmed.');
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to confirm customer pickup PIN.');
+              }
+            },
+          });
+        },
+      });
+
+      AppManager.showDialog(dialog);
     },
   });
 }
@@ -565,20 +643,22 @@ function confirmReturnedItemButton(report: Report) {
   });
 }
 
-function returnButton(report: Report, statusRef: Ref<any>) {
-  return $BN({ text: 'Mark Returned', color: 'secondary' }, {
+function confirmDirectReturnReceiptButton(report: Report) {
+  return $BN({ text: 'Confirm Receipt', color: 'success' }, {
     onClicked: async (button) => {
       try {
-        const confirmed = await Dialogs.$confirm('Are you sure you want to mark this reservation as returned?');
+        const confirmed = await Dialogs.$confirm(
+          'Confirm that the returned item is now physically back with the rental provider?',
+          'Confirm Receipt',
+        );
         if (!confirmed) {
           return;
         }
-        await patchReservation(String(button.$master?.$get('id') || ''), { reservationStatus: 'returned' });
-        statusRef.value = 'returned';
+        await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${String(button.$master?.$get('id') || '')}/return-handoff/confirm-receipt`).create({});
         await refreshReport(report);
-        Dialogs.$success('Reservation completed.');
+        Dialogs.$success('Direct return receipt confirmed.');
       } catch (error: any) {
-        Dialogs.$error(error?.message || 'Failed to update reservation.');
+        Dialogs.$error(error?.message || 'Failed to confirm receipt.');
       }
     },
   });
@@ -629,19 +709,141 @@ function failButton(report: Report, statusRef: Ref<any>) {
 }
 
 function refundDepositButton(report: Report) {
-  return $BN({ text: 'Refund Deposit', color: 'success' }, {
+  return $BN({ text: 'Schedule Deposit Refund', color: 'success' }, {
     onClicked: async (button) => {
-      const dialog = reasonDialog('Refund Deposit', 'Resolution Reason', async (reason) => {
-        try {
-          await patchReservation(String(button.$master?.$get('id') || ''), {
-            securityDepositAction: 'refund',
-            securityDepositResolutionReason: reason,
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Schedule Deposit Refund',
+            width: 560,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({ label: 'Resolution Reason', storage: 'securityDepositResolutionReason', type: 'textarea', required: true, cols: 12 }),
+                  $FD({ label: 'Refund Reference', storage: 'securityDepositRefundReference', type: 'text', cols: 12 }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              const reason = String(form.$master?.$get('securityDepositResolutionReason') || '').trim();
+
+              if (!reason) {
+                Dialogs.$error('Resolution Reason is required.');
+                return;
+              }
+
+              try {
+                await patchReservation(String(button.$master?.$get('id') || ''), {
+                  securityDepositAction: 'refund',
+                  securityDepositResolutionReason: reason,
+                  securityDepositRefundReference: form.$master?.$get('securityDepositRefundReference'),
+                });
+                await refreshReport(report);
+                Dialogs.$success('Deposit refund was scheduled.');
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to refund deposit.');
+              }
+            },
           });
-          await refreshReport(report);
-          Dialogs.$success('Deposit refunded successfully.');
-        } catch (error: any) {
-          Dialogs.$error(error?.message || 'Failed to refund deposit.');
-        }
+        },
+      });
+
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
+function collectDepositButton(report: Report) {
+  return $BN({ text: 'Record Deposit Collected', color: 'primary' }, {
+    onClicked: async (button) => {
+      const heldAmount = Number(button.$master?.$get('securityDepositAmount') || 0);
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Record Cash Deposit Collection',
+            width: 560,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({ label: 'Collected Amount', storage: 'securityDepositCollectedAmount', type: 'integer', required: true }),
+                  $FD({ label: 'Collection Reference', storage: 'securityDepositCollectionReference', type: 'text', cols: 12 }),
+                  $FD({ label: 'Collection Note', storage: 'securityDepositCollectionNote', type: 'textarea', cols: 12 }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              const collectedAmount = Number(form.$master?.$get('securityDepositCollectedAmount') || heldAmount || 0);
+
+              if (!Number.isFinite(collectedAmount) || collectedAmount <= 0) {
+                Dialogs.$error('Collected Amount must be greater than zero.');
+                return;
+              }
+
+              try {
+                await patchReservation(String(button.$master?.$get('id') || ''), {
+                  securityDepositAction: 'collect',
+                  securityDepositCollectedAmount: collectedAmount,
+                  securityDepositCollectionReference: form.$master?.$get('securityDepositCollectionReference'),
+                  securityDepositCollectionNote: form.$master?.$get('securityDepositCollectionNote'),
+                });
+                await refreshReport(report);
+                Dialogs.$success('Cash deposit collection recorded.');
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to record deposit collection.');
+              }
+            },
+          });
+        },
+      });
+
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
+function manualRefundDepositButton(report: Report) {
+  return $BN({ text: 'Complete Manual Refund', color: 'secondary' }, {
+    onClicked: async (button) => {
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Complete Manual Deposit Refund',
+            width: 560,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({ label: 'Resolution Reason', storage: 'securityDepositResolutionReason', type: 'textarea', required: true, cols: 12 }),
+                  $FD({ label: 'Refund Reference', storage: 'securityDepositRefundReference', type: 'text', cols: 12 }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              const reason = String(form.$master?.$get('securityDepositResolutionReason') || '').trim();
+              if (!reason) {
+                Dialogs.$error('Resolution Reason is required.');
+                return;
+              }
+
+              try {
+                await patchReservation(String(button.$master?.$get('id') || ''), {
+                  securityDepositAction: 'manual_refund',
+                  securityDepositResolutionReason: reason,
+                  securityDepositRefundReference: form.$master?.$get('securityDepositRefundReference'),
+                });
+                await refreshReport(report);
+                Dialogs.$success('Manual deposit refund completed.');
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to record manual refund.');
+              }
+            },
+          });
+        },
       });
 
       AppManager.showDialog(dialog);
@@ -803,7 +1005,7 @@ function refreshButton(report: Report) {
   });
 }
 
-const trigger = () => $TG({
+const trigger = (defaultQuery: Record<string, any> = {}) => $TG({
   title: 'Reservations',
   selectFields: ['id','reservationNumber', 'customerDisplayName', 'fulfillmentMethod', 'startDate', 'endDate', 'totalAmount', 'currency', 'paymentStatus', 'reservationStatus', 'createdAt'],
   headers: [
@@ -818,6 +1020,9 @@ const trigger = () => $TG({
     { title: 'Status', value: 'reservationStatus' },
     { title: 'Created', value: 'createdAt' },
   ],
+  query: {
+    ...defaultQuery,
+  },
 }, {
   format(trigger, items) {
     for (const item of items) {
@@ -830,6 +1035,30 @@ const trigger = () => $TG({
       item.totalAmount = money(item.totalAmount, item.currency);
     }
     return items;
+  },
+  topChildren: () => [
+    $FD({ label: 'Due From', type: 'date', storage: 'dueDateFrom', md: 4, lg: 3, hint: 'Filters reservations due from this pickup or delivery date.' }, {
+      default() {
+        return String(defaultQuery?.dueDateFrom || todayDateInput());
+      },
+    }),
+    $FD({ label: 'Due To', type: 'date', storage: 'dueDateTo', md: 4, lg: 3, hint: 'Filters reservations due up to this pickup or delivery date.' }, {
+      default() {
+        return String(defaultQuery?.dueDateTo || todayDateInput());
+      },
+    }),
+  ],
+  processQuery(query, trigger) {
+    const dueDateFrom = String(trigger.$master?.$get('dueDateFrom', String(defaultQuery?.dueDateFrom || todayDateInput())) || '').trim();
+    const dueDateTo = String(trigger.$master?.$get('dueDateTo', String(defaultQuery?.dueDateTo || todayDateInput())) || '').trim();
+
+    if (dueDateFrom) query.dueDateFrom = dueDateFrom;
+    else delete query.dueDateFrom;
+
+    if (dueDateTo) query.dueDateTo = dueDateTo;
+    else delete query.dueDateTo;
+
+    return query;
   },
 });
 
@@ -886,7 +1115,12 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
       statusRef.value === 'confirmed' &&
       String(reservation.fulfillmentMethod || '').trim().toLowerCase() === 'customer_pickup'
     ) {
-      buttons.push(pickupButton(report, statusRef));
+      if (String(reservation.customerPickupHandoffStatus || 'not_requested').trim().toLowerCase() === 'not_requested') {
+        buttons.push(requestCustomerPickupButton(report));
+      }
+      if (String(reservation.customerPickupHandoffStatus || '').trim().toLowerCase() === 'requested') {
+        buttons.push(confirmCustomerPickupPinButton(report));
+      }
     }
 
     if (
@@ -908,7 +1142,9 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
       statusRef.value === 'picked_up' &&
       String(reservation.returnFulfillmentMethod || '').trim().toLowerCase() === 'return_by_customer'
     ) {
-      buttons.push(returnButton(report, statusRef));
+      if (String(reservation.customerReturnHandoffStatus || '').trim().toLowerCase() === 'requested') {
+        buttons.push(confirmDirectReturnReceiptButton(report));
+      }
     }
 
     if (
@@ -919,11 +1155,28 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
       buttons.push(confirmReturnedItemButton(report));
     }
 
-    const depositAmount = Number(report.$master?.$get('securityDepositHeldAmount') || report.$master?.$get('securityDepositAmount') || 0);
-    const depositStatus = String(report.$master?.$get('securityDepositStatus') || 'not_required');
-    if (statusRef.value === 'returned' && depositAmount > 0 && ['held', 'not_required'].includes(depositStatus)) {
+    const requiredDepositAmount = Number(report.$master?.$get('securityDepositAmount') || 0);
+    const heldDepositAmount = Number(report.$master?.$get('securityDepositHeldAmount') || 0);
+    const depositStatus = String(report.$master?.$get('securityDepositStatus') || 'not_required').trim().toLowerCase();
+    const depositCollectionMethod = String(report.$master?.$get('securityDepositCollectionMethod') || 'not_required').trim().toLowerCase();
+
+    if (
+      paymentStatus === 'paid' &&
+      requiredDepositAmount > 0 &&
+      depositCollectionMethod === 'cash' &&
+      depositStatus === 'pending_collection'
+    ) {
+      buttons.push(collectDepositButton(report));
+    }
+
+    if (statusRef.value === 'returned' && heldDepositAmount > 0 && depositStatus === 'held') {
       buttons.push(refundDepositButton(report));
       buttons.push(deductDepositButton(report));
+    }
+
+    if (statusRef.value === 'returned' && heldDepositAmount > 0 && ['refund_failed', 'manual_refund_required'].includes(depositStatus)) {
+      buttons.push(manualRefundDepositButton(report));
+      buttons.push(refundDepositButton(report));
     }
 
     if (['requested', 'confirmed'].includes(String(statusRef.value || ''))) {
@@ -936,10 +1189,10 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
   access: rentalAccess('rental.reservations.view'),
 });
 
-export const rentalReservationsCollection = () => $COL({
+export const rentalReservationsCollection = (defaultQuery: Record<string, any> = {}) => $COL({
   objectType: getServicePath(),
 }, {
   report: rentalReservationsReport(),
-  trigger,
+  trigger: () => trigger(defaultQuery),
   access: rentalAccess('rental.reservations.view'),
 });

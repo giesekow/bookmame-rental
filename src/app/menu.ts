@@ -4,9 +4,12 @@ import { RENTAL_DASHBOARD_WIDGET } from '../pages/dashboard';
 import { rentalDeliveryPartnersMenu } from '../pages/delivery-partners';
 import { rentalFinanceSummaryReport } from '../pages/finance-summary';
 import { rentalInventoryCollection, rentalInventoryMenu } from '../pages/inventory';
+import { rentalInventoryCalendarSelector } from '../pages/inventory-calendar';
 import { rentalNotificationPreferencesReport } from '../pages/notification-preferences';
 import { rentalProfileReport } from '../pages/profile';
+import { rentalRatingsCollection } from '../pages/ratings';
 import { rentalReservationsCollection } from '../pages/reservations';
+import { supportCasesCollection } from '../pages/support-cases';
 import { rentalRemittanceBatchesCollection, rentalSettlementBatchesCollection } from '../pages/settlement-batches';
 import { rentalRemittanceHistoryCollection, rentalSettlementHistoryCollection } from '../pages/settlement-history';
 
@@ -42,14 +45,17 @@ export function buildHomeMenu() {
           access: rentalAccess('rental.inventory.view'),
         }),
         $MI({
-          text: 'Delivery Partners',
-          icon: 'mdi-truck-delivery-outline',
-          shortcut: 'L',
-          action: 'menu',
-          color: 'success',
+          text: 'Inventory Calendar',
+          icon: 'mdi-calendar-blank-outline',
+          shortcut: 'C',
+          action: 'function',
+          color: 'secondary',
         }, {
-          menu: rentalDeliveryPartnersMenu,
-          access: rentalAccess('rental.delivery_partners.manage'),
+          callback: async () => {
+            const selector = rentalInventoryCalendarSelector()
+            AppManager.showSelector(selector)
+          },
+          access: rentalAccess('rental.inventory.view'),
         }),
         $MI({
           text: 'Reservations',
@@ -60,6 +66,28 @@ export function buildHomeMenu() {
           color: 'info',
         }, {
           collection: rentalReservationsCollection,
+          access: rentalAccess('rental.reservations.view'),
+        }),
+        $MI({
+          text: 'Ratings',
+          icon: 'mdi-star-circle-outline',
+          shortcut: 'A',
+          action: 'collection',
+          mode: 'display',
+          color: 'info',
+        }, {
+          collection: rentalRatingsCollection,
+          access: rentalAccess('rental.reservations.view'),
+        }),
+        $MI({
+          text: 'Support Cases',
+          icon: 'mdi-lifebuoy',
+          shortcut: 'U',
+          action: 'collection',
+          mode: 'display',
+          color: 'warning',
+        }, {
+          collection: supportCasesCollection,
           access: rentalAccess('rental.reservations.view'),
         }),
         $MI({
@@ -170,10 +198,20 @@ const buildSettingsMenu = () => new Menu(
         shortcut: 'P',
         action: 'report',
         mode: 'display',
-        color: 'warning',
+        color: 'primary',
       }, {
         report: rentalProfileReport,
         access: rentalAccess('rental.profile.view'),
+      }),
+      $MI({
+        text: 'Delivery Partners',
+        icon: 'mdi-truck-delivery-outline',
+        shortcut: 'L',
+        action: 'menu',
+        color: 'success',
+      }, {
+        menu: rentalDeliveryPartnersMenu,
+        access: rentalAccess('rental.delivery_partners.manage'),
       }),
       $MI({
         text: 'Notifications',
@@ -181,7 +219,7 @@ const buildSettingsMenu = () => new Menu(
         shortcut: 'N',
         action: 'report',
         mode: 'display',
-        color: 'info',
+        color: 'secondary',
       }, {
         report: rentalNotificationPreferencesReport,
         access: rentalAccess('rental.notifications.view'),

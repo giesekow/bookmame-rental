@@ -1,5 +1,33 @@
-import { $DB, $DMW, $MI, Api } from 'vuetify-extended';
+import { $DALW, $DB, $DMW, $DTW, $MI, Api, AppManager } from 'vuetify-extended';
+import { rentalHasAccess } from '../../misc/access';
 import { useAppStore } from '../../store/app';
+import { rentalFinanceSummaryReport } from '../finance-summary';
+import { rentalRatingsCollection } from '../ratings';
+import { rentalReservationsCollection, rentalReservationsReport } from '../reservations';
+import { supportCasesCollection } from '../support-cases';
+
+type DashboardSummary = {
+  pendingReviewCount: number;
+  inProgressCount: number;
+  completedCount: number;
+  averageRating: number | null;
+  ratingCount: number;
+  openSupportCaseCount: number;
+  readyForManualPayoutAmount?: number;
+  payoutInitiatedAmount?: number;
+  readyForManualRemittanceAmount?: number;
+  netSettlementPosition?: number;
+  currency?: string | null;
+};
+
+let dashboardSummaryPromise: Promise<DashboardSummary> | null = null;
+let dashboardSummaryLoadedAt = 0;
+const DASHBOARD_SUMMARY_CACHE_MS = 15000;
+
+type PaginatedResult<T> = {
+  items: T[];
+  total: number;
+};
 
 function currentProvider() {
   return useAppStore().rentalProvider || null;
@@ -9,36 +37,116 @@ function providerId() {
   return currentProvider()?.id || null;
 }
 
-async function loadReservationCount(statuses: string[]) {
-  const rentalProviderId = providerId();
-  if (!rentalProviderId) {
-    return 0;
+function dateTime(value: unknown) {
+  const date = value ? new Date(String(value)) : null;
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return 'Unknown';
   }
 
-  const result = await Api.instance.service(`rental-providers/${rentalProviderId}/reservations`).find({
-    query: {
-      reservationStatus: { $in: statuses },
-      $limit: 1,
-      $skip: 0,
-    },
-  });
-
-  return Number(result?.total ?? result?.length ?? 0);
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  } catch (_error) {
+    return date.toISOString();
+  }
 }
 
-async function loadFinanceSummary() {
-  const rentalProviderId = providerId();
-  if (!rentalProviderId) {
-    return null;
+function formatDateInput(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function todayDateInput() {
+  return formatDateInput(new Date());
+}
+
+function normalizeFindResult<T>(response: any): PaginatedResult<T> {
+  if (Array.isArray(response)) {
+    return {
+      items: response as T[],
+      total: response.length,
+    };
   }
 
-  return Api.instance.service(`rental-providers/${rentalProviderId}/settlements/summary`).find({
-    query: {
-      $limit: 1,
-      $skip: 0,
-      currency: currentProvider()?.defaultCurrencyCode || undefined,
-    },
-  });
+  if (Array.isArray(response?.data)) {
+    return {
+      items: response.data as T[],
+      total: Number(response?.total ?? response.data.length ?? 0),
+    };
+  }
+
+  if (Array.isArray(response?.items)) {
+    return {
+      items: response.items as T[],
+      total: Number(response?.total ?? response.items.length ?? 0),
+    };
+  }
+
+  return {
+    items: [],
+    total: 0,
+  };
+}
+
+async function safeFind<T>(servicePath: string, query: Record<string, any>): Promise<PaginatedResult<T>> {
+  try {
+    const response = await Api.instance.service(servicePath).find({ query });
+    return normalizeFindResult<T>(response);
+  } catch (error: any) {
+    console.error(`[rental-dashboard] Failed to load ${servicePath}`, error);
+    return {
+      items: [],
+      total: 0,
+    };
+  }
+}
+
+async function loadDashboardSummary(force = false) {
+  const rentalProviderId = providerId();
+  if (!rentalProviderId) {
+    return {
+      pendingReviewCount: 0,
+      inProgressCount: 0,
+      completedCount: 0,
+      averageRating: null,
+      ratingCount: 0,
+      openSupportCaseCount: 0,
+      readyForManualPayoutAmount: 0,
+      payoutInitiatedAmount: 0,
+      readyForManualRemittanceAmount: 0,
+      netSettlementPosition: 0,
+      currency: currentProvider()?.defaultCurrencyCode || null,
+    };
+  }
+
+  const cacheExpired = (Date.now() - dashboardSummaryLoadedAt) > DASHBOARD_SUMMARY_CACHE_MS;
+
+  if (force || !dashboardSummaryPromise || cacheExpired) {
+    dashboardSummaryPromise = (async () => {
+      const summary = await Api.instance.service(`rental-providers/${rentalProviderId}/dashboard/summary`).find() as DashboardSummary;
+      return summary || {
+        pendingReviewCount: 0,
+        inProgressCount: 0,
+        completedCount: 0,
+        averageRating: null,
+        ratingCount: 0,
+        openSupportCaseCount: 0,
+        readyForManualPayoutAmount: 0,
+        payoutInitiatedAmount: 0,
+        readyForManualRemittanceAmount: 0,
+        netSettlementPosition: 0,
+        currency: currentProvider()?.defaultCurrencyCode || null,
+      };
+    })();
+    dashboardSummaryLoadedAt = Date.now();
+  }
+
+  return dashboardSummaryPromise;
 }
 
 function money(amountMinor: unknown, currency?: unknown) {
@@ -58,9 +166,68 @@ function money(amountMinor: unknown, currency?: unknown) {
   }
 }
 
+function ratingValue(value?: number | null) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? `${value.toFixed(1)}/5`
+    : 'No ratings yet';
+}
+
+function openReservationsCollection() {
+  AppManager.showCollection(rentalReservationsCollection());
+}
+
+async function loadReservationsDueTodayCount() {
+  const currentRentalProviderId = providerId();
+  if (!currentRentalProviderId) {
+    return 0;
+  }
+
+  const response = await Api.instance.service(`rental-providers/${currentRentalProviderId}/reservations`).find({
+    query: {
+      dueDateFrom: todayDateInput(),
+      dueDateTo: todayDateInput(),
+      $limit: 1,
+      $skip: 0,
+    },
+  }) as any;
+
+  return Number(response?.total ?? response?.length ?? 0);
+}
+
+function openReservationsDueTodayCollection() {
+  const today = todayDateInput();
+  AppManager.showCollection(rentalReservationsCollection({
+    dueDateFrom: today,
+    dueDateTo: today,
+  }));
+}
+
+function openReservation(reservationId?: string) {
+  if (!reservationId) {
+    openReservationsCollection();
+    return;
+  }
+
+  const report = rentalReservationsReport(reservationId)();
+  report.$params.mode = 'display';
+  AppManager.showReport(report);
+}
+
+function openRatingsCollection() {
+  AppManager.showCollection(rentalRatingsCollection());
+}
+
+function openSupportCasesCollection() {
+  AppManager.showCollection(supportCasesCollection());
+}
+
+function openFinanceSummaryReport() {
+  AppManager.showReport(rentalFinanceSummaryReport());
+}
+
 export const RENTAL_DASHBOARD_WIDGET = $DB({
   title: 'Dashboard',
-  subtitle: 'Operational visibility for reservations, payouts, remittances, and the currently selected rental provider.',
+  subtitle: 'Operational visibility for reservations, customer feedback, support cases, payouts, and the currently selected rental provider.',
   fluid: true,
   theme: 'light',
   backgroundColor: '#fbf8f4',
@@ -76,6 +243,7 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
     }, {
       callback: async () => {
         await useAppStore().switchRentalProvider(currentProvider()?.id);
+        dashboardSummaryPromise = null;
         await RENTAL_DASHBOARD_WIDGET.refresh();
       },
     }),
@@ -94,6 +262,23 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
       value: async () => currentProvider()?.name || 'No provider selected',
     }),
     $DMW({
+      title: 'Reservations Due Today',
+      subtitle: 'Pickups or deliveries due on the current date.',
+      icon: 'mdi-calendar-today-outline',
+      cols: 12,
+      md: 6,
+      lg: 3,
+      color: '#ffffff',
+      cardStyle: { border: '1px solid #eadfcf' },
+    }, {
+      value: async () => loadReservationsDueTodayCount(),
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.reservations.view')) {
+          openReservationsDueTodayCollection();
+        }
+      },
+    }),
+    $DMW({
       title: 'Pending Review',
       subtitle: 'Paid reservations that are waiting for provider confirmation.',
       icon: 'mdi-timer-sand',
@@ -103,7 +288,12 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
       color: '#fff8dd',
       cardStyle: { border: '1px solid #ebd58c' },
     }, {
-      value: async () => loadReservationCount(['requested']),
+      value: async () => (await loadDashboardSummary()).pendingReviewCount,
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.reservations.view')) {
+          openReservationsCollection();
+        }
+      },
     }),
     $DMW({
       title: 'In Progress',
@@ -115,7 +305,12 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
       color: '#eef4fa',
       cardStyle: { border: '1px solid #d7e2ec' },
     }, {
-      value: async () => loadReservationCount(['confirmed', 'picked_up']),
+      value: async () => (await loadDashboardSummary()).inProgressCount,
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.reservations.view')) {
+          openReservationsCollection();
+        }
+      },
     }),
     $DMW({
       title: 'Completed',
@@ -127,10 +322,64 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
       color: '#e7f7ef',
       cardStyle: { border: '1px solid #a8d9be' },
     }, {
-      value: async () => loadReservationCount(['returned']),
+      value: async () => (await loadDashboardSummary()).completedCount,
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.reservations.view')) {
+          openReservationsCollection();
+        }
+      },
     }),
-  ],
-  bottomChildren: () => [
+    $DMW({
+      title: 'Average Rating',
+      subtitle: 'Current customer review score for the active provider.',
+      icon: 'mdi-star-circle-outline',
+      cols: 12,
+      md: 6,
+      lg: 3,
+      color: '#fff8dd',
+      cardStyle: { border: '1px solid #ebd58c' },
+    }, {
+      value: async () => ratingValue((await loadDashboardSummary()).averageRating),
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.reservations.view')) {
+          openRatingsCollection();
+        }
+      },
+    }),
+    $DMW({
+      title: 'Ratings',
+      subtitle: 'Total reviews received from customers.',
+      icon: 'mdi-star-box-multiple-outline',
+      cols: 12,
+      md: 6,
+      lg: 3,
+      color: '#eef4fa',
+      cardStyle: { border: '1px solid #d7e2ec' },
+    }, {
+      value: async () => (await loadDashboardSummary()).ratingCount,
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.reservations.view')) {
+          openRatingsCollection();
+        }
+      },
+    }),
+    $DMW({
+      title: 'Open Support Cases',
+      subtitle: 'Customer issues that still need provider attention.',
+      icon: 'mdi-lifebuoy',
+      cols: 12,
+      md: 6,
+      lg: 3,
+      color: '#fff3f0',
+      cardStyle: { border: '1px solid #f2d0c6' },
+    }, {
+      value: async () => (await loadDashboardSummary()).openSupportCaseCount,
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.reservations.view')) {
+          openSupportCasesCollection();
+        }
+      },
+    }),
     $DMW({
       title: 'Ready For Payout',
       subtitle: 'Net amount that is currently eligible for payout to this rental provider.',
@@ -142,8 +391,13 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
       cardStyle: { border: '1px solid #ebd58c' },
     }, {
       value: async () => {
-        const summary = await loadFinanceSummary();
+        const summary = await loadDashboardSummary();
         return money(summary?.readyForManualPayoutAmount, summary?.currency || currentProvider()?.defaultCurrencyCode);
+      },
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.finance.view')) {
+          openFinanceSummaryReport();
+        }
       },
     }),
     $DMW({
@@ -157,8 +411,13 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
       cardStyle: { border: '1px solid #d7e2ec' },
     }, {
       value: async () => {
-        const summary = await loadFinanceSummary();
+        const summary = await loadDashboardSummary();
         return money(summary?.payoutInitiatedAmount, summary?.currency || currentProvider()?.defaultCurrencyCode);
+      },
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.finance.view')) {
+          openFinanceSummaryReport();
+        }
       },
     }),
     $DMW({
@@ -172,8 +431,13 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
       cardStyle: { border: '1px solid #ebd58c' },
     }, {
       value: async () => {
-        const summary = await loadFinanceSummary();
+        const summary = await loadDashboardSummary();
         return money(summary?.readyForManualRemittanceAmount, summary?.currency || currentProvider()?.defaultCurrencyCode);
+      },
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.finance.view')) {
+          openFinanceSummaryReport();
+        }
       },
     }),
     $DMW({
@@ -187,9 +451,156 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
       cardStyle: { border: '1px solid #a8d9be' },
     }, {
       value: async () => {
-        const summary = await loadFinanceSummary();
+        const summary = await loadDashboardSummary();
         return money(summary?.netSettlementPosition, summary?.currency || currentProvider()?.defaultCurrencyCode);
+      },
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.finance.view')) {
+          openFinanceSummaryReport();
+        }
       },
     }),
   ],
+  children: () => [
+    $DTW({
+      title: 'Reservations Due Today',
+      subtitle: 'Pickups or deliveries scheduled for today.',
+      icon: 'mdi-calendar-today-outline',
+      cols: 12,
+      lg: 8,
+      minHeight: 340,
+      color: '#ffffff',
+      cardStyle: { border: '1px solid #eadfcf' },
+      emptyText: 'No reservations are due today.',
+      headers: [
+        { key: 'reservationNumber', title: 'Reservation' },
+        { key: 'customerDisplayName', title: 'Customer' },
+        { key: 'fulfillmentMethod', title: 'Fulfilment' },
+        { key: 'startDateStr', title: 'Start' },
+        { key: 'reservationStatus', title: 'Status' },
+      ],
+      pagination: true,
+      pageSize: 10,
+    }, {
+      loadPage: async (_widget, args) => {
+        const currentRentalProviderId = providerId();
+        if (!currentRentalProviderId) {
+          return { total: 0, items: [] };
+        }
+
+        const page = Math.max(1, Number(args?.page || 1));
+        const pageSize = Math.max(1, Number(args?.pageSize || 10));
+        const skip = (page - 1) * pageSize;
+        const today = todayDateInput();
+        const result = await safeFind<any>(`rental-providers/${currentRentalProviderId}/reservations`, {
+          dueDateFrom: today,
+          dueDateTo: today,
+          $limit: pageSize,
+          $skip: skip,
+        });
+
+        return {
+          total: result.total,
+          items: result.items.map((item: any) => ({
+            id: item?.id,
+            reservationNumber: item?.reservationNumber || 'Unknown reservation',
+            customerDisplayName: item?.customerDisplayName || 'Unknown customer',
+            fulfillmentMethod: String(item?.fulfillmentMethod || 'customer_pickup').replace(/_/g, ' '),
+            startDateStr: dateTime(item?.startDate),
+            reservationStatus: String(item?.reservationStatus || 'n/a').replace(/_/g, ' '),
+          })),
+        };
+      },
+      onRowClick: async (_widget, row) => {
+        if (await rentalHasAccess('rental.reservations.view')) {
+          openReservation(String(row?.id || ''));
+        }
+      },
+    }),
+    $DALW({
+      title: 'Quick Actions',
+      subtitle: 'Jump straight into the rental reports used most often.',
+      icon: 'mdi-lightning-bolt-outline',
+      cols: 12,
+      lg: 4,
+      minHeight: 300,
+      color: '#ffffff',
+      cardStyle: { border: '1px solid #eadfcf' },
+    }, {
+      items: async () => [
+        ...(await rentalHasAccess('rental.reservations.view')
+          ? [
+              {
+                key: 'reservations',
+                title: 'Open Reservations',
+                subtitle: 'Review incoming requests, active rentals, and completed returns.',
+                icon: 'mdi-calendar-clock-outline',
+                iconColor: '#2563eb',
+                chipText: 'Operations',
+                chipColor: 'primary',
+                actionText: 'Open',
+                actionColor: 'primary',
+              },
+              {
+                key: 'ratings',
+                title: 'Ratings',
+                subtitle: 'Read customer feedback about provider and delivery experience.',
+                icon: 'mdi-star-circle-outline',
+                iconColor: '#b45309',
+                chipText: String((await loadDashboardSummary()).ratingCount || 0),
+                chipColor: 'warning',
+                actionText: 'Open',
+                actionColor: 'warning',
+              },
+              {
+                key: 'support',
+                title: 'Support Cases',
+                subtitle: 'Respond to customer issues tied to reservations.',
+                icon: 'mdi-lifebuoy',
+                iconColor: '#dc2626',
+                chipText: String((await loadDashboardSummary()).openSupportCaseCount || 0),
+                chipColor: 'error',
+                actionText: 'Open',
+                actionColor: 'error',
+              },
+            ]
+          : []),
+        ...(await rentalHasAccess('rental.finance.view')
+          ? [{
+              key: 'finance',
+              title: 'Finance Summary',
+              subtitle: 'Track payout readiness, remittance, and current net settlement position.',
+              icon: 'mdi-cash-register',
+              iconColor: '#166534',
+              chipText: 'Finance',
+              chipColor: 'success',
+              actionText: 'Open',
+              actionColor: 'success',
+            }]
+          : []),
+      ],
+      onItemClicked: async (_widget, item) => {
+        switch (item?.key) {
+          case 'reservations':
+            openReservationsCollection();
+            return;
+          case 'ratings':
+            openRatingsCollection();
+            return;
+          case 'support':
+            openSupportCasesCollection();
+            return;
+          case 'finance':
+            openFinanceSummaryReport();
+            return;
+          default:
+            return;
+        }
+      },
+    }),
+  ],
+  setup(dashboard) {
+    dashboardSummaryPromise = null;
+    void dashboard.refresh();
+  },
 });
