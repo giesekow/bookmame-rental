@@ -17,6 +17,8 @@ type DashboardSummary = {
   payoutInitiatedAmount?: number;
   readyForManualRemittanceAmount?: number;
   netSettlementPosition?: number;
+  paidTodayAmount?: number;
+  paidTodayCount?: number;
   currency?: string | null;
 };
 
@@ -120,6 +122,8 @@ async function loadDashboardSummary(force = false) {
       payoutInitiatedAmount: 0,
       readyForManualRemittanceAmount: 0,
       netSettlementPosition: 0,
+      paidTodayAmount: 0,
+      paidTodayCount: 0,
       currency: currentProvider()?.defaultCurrencyCode || null,
     };
   }
@@ -140,6 +144,8 @@ async function loadDashboardSummary(force = false) {
         payoutInitiatedAmount: 0,
         readyForManualRemittanceAmount: 0,
         netSettlementPosition: 0,
+        paidTodayAmount: 0,
+        paidTodayCount: 0,
         currency: currentProvider()?.defaultCurrencyCode || null,
       };
     })();
@@ -453,6 +459,26 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
       value: async () => {
         const summary = await loadDashboardSummary();
         return money(summary?.netSettlementPosition, summary?.currency || currentProvider()?.defaultCurrencyCode);
+      },
+      onClicked: async () => {
+        if (await rentalHasAccess('rental.finance.view')) {
+          openFinanceSummaryReport();
+        }
+      },
+    }),
+    $DMW({
+      title: 'Paid Today',
+      subtitle: 'Net payout amount settled to this rental provider today.',
+      icon: 'mdi-bank-transfer-out',
+      cols: 12,
+      md: 6,
+      lg: 3,
+      color: '#ffffff',
+      cardStyle: { border: '1px solid #eadfcf' },
+    }, {
+      value: async () => {
+        const summary = await loadDashboardSummary();
+        return money(summary?.paidTodayAmount, summary?.currency || currentProvider()?.defaultCurrencyCode);
       },
       onClicked: async () => {
         if (await rentalHasAccess('rental.finance.view')) {

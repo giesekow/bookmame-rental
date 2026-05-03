@@ -1,5 +1,6 @@
 import { Api, AppManager, Dialogs, Mailbox, type MailboxItem } from 'vuetify-extended'
 import { rentalReservationsReport } from '../pages/reservations'
+import { openRentalSettlementBatchReport } from '../pages/settlement-batches'
 import { supportCaseReport } from '../pages/support-cases'
 
 const APP_CLIENT_ID = 'bookmame-rental'
@@ -14,6 +15,7 @@ type NotificationRecord = {
   body?: string | null
   icon?: string | null
   category?: string | null
+  eventType?: string | null
   targetApp?: string | null
   sourceService?: string | null
   sourceEntityId?: string | null
@@ -105,6 +107,14 @@ function getReservationIdFromNotification(item: MailboxItem) {
   }
 
   return String(raw.sourceEntityId)
+}
+
+function getSettlementBatchFromNotification(item: MailboxItem) {
+  const raw = item?.meta?.raw as NotificationRecord | undefined
+  if (!raw?.sourceEntityId) return null
+  if (!String(raw.sourceService || '').includes('/settlement-batches')) return null
+  const isRemittance = String(raw.eventType || '').includes('remittance')
+  return { id: String(raw.sourceEntityId), flowType: isRemittance ? 'remittance' : 'payout' } as const
 }
 
 function getSupportCaseIdFromNotification(item: MailboxItem) {
@@ -200,6 +210,7 @@ async function removeMany(items: MailboxItem[]) {
 
 async function viewItem(item: MailboxItem) {
   const reservationId = getReservationIdFromNotification(item)
+  const settlementBatch = getSettlementBatchFromNotification(item)
   const supportCaseId = getSupportCaseIdFromNotification(item)
 
   if (reservationId) {
@@ -207,6 +218,11 @@ async function viewItem(item: MailboxItem) {
     report.$params.mode = 'display'
     await report.$master?.$load()
     AppManager.showReport(report)
+    return undefined
+  }
+
+  if (settlementBatch) {
+    openRentalSettlementBatchReport(settlementBatch.id, settlementBatch.flowType)
     return undefined
   }
 

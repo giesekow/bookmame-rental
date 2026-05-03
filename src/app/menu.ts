@@ -5,11 +5,13 @@ import { rentalDeliveryPartnersMenu } from '../pages/delivery-partners';
 import { rentalFinanceSummaryReport } from '../pages/finance-summary';
 import { rentalInventoryCollection, rentalInventoryMenu } from '../pages/inventory';
 import { rentalInventoryCalendarSelector } from '../pages/inventory-calendar';
+import { openInventoryCatalogDialog } from '../misc/inventory-catalog';
 import { rentalNotificationPreferencesReport } from '../pages/notification-preferences';
 import { rentalProfileReport } from '../pages/profile';
 import { rentalRatingsCollection } from '../pages/ratings';
 import { rentalReservationsCollection } from '../pages/reservations';
 import { supportCasesCollection } from '../pages/support-cases';
+import { rentalCancellationRefundsCollection } from '../pages/cancellation-refunds';
 import { rentalRemittanceBatchesCollection, rentalSettlementBatchesCollection } from '../pages/settlement-batches';
 import { rentalRemittanceHistoryCollection, rentalSettlementHistoryCollection } from '../pages/settlement-history';
 
@@ -42,6 +44,16 @@ export function buildHomeMenu() {
           color: 'primary',
         }, {
           menu: rentalInventoryMenu,
+          access: rentalAccess('rental.inventory.view'),
+        }),
+        $MI({
+          text: 'Print Inventory Catalog',
+          icon: 'mdi-printer-outline',
+          shortcut: 'P',
+          action: 'function',
+          color: 'error',
+        }, {
+          callback: async () => { openInventoryCatalogDialog() },
           access: rentalAccess('rental.inventory.view'),
         }),
         $MI({
@@ -178,6 +190,17 @@ const buildFinanceMenu = () => new Menu(
         color: 'secondary',
       }, {
         collection: rentalSettlementHistoryCollection,
+        access: rentalAccess('rental.finance.view'),
+      }),
+      $MI({
+        text: 'Cancellation Refunds',
+        icon: 'mdi-cash-remove',
+        shortcut: 'C',
+        action: 'collection',
+        mode: 'display',
+        color: 'error',
+      }, {
+        collection: rentalCancellationRefundsCollection,
         access: rentalAccess('rental.finance.view'),
       }),
     ],

@@ -2,6 +2,8 @@ import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, AppManager, Button, DialogForm
 import { ref, Ref } from 'vue';
 import { rentalAccess } from '../../misc/access';
 import { useAppStore } from '../../store/app';
+import { printReceipt, downloadReceiptPdf } from '../../misc/print-receipt';
+import { printReservationLabel } from '../../misc/reservation-label';
 
 function getRentalProviderId() {
   const rentalProviderId = useAppStore().rentalProvider?.id;
@@ -1005,6 +1007,50 @@ function refreshButton(report: Report) {
   });
 }
 
+function printReceiptButton() {
+  return $BN({ text: 'Print Receipt', color: 'info', icon: 'mdi-receipt-outline' }, {
+    onClicked: async (button) => {
+      try {
+        const reservationId = String(button.$master?.$get('id') || '');
+        const rentalProviderId = getRentalProviderId();
+        if (!reservationId) throw new Error('Unable to identify the reservation.');
+        const apiBase = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+        await printReceipt(`${apiBase}/rental-providers/${rentalProviderId}/reservations/${reservationId}/receipt`);
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Unable to print the receipt right now.');
+      }
+    },
+  });
+}
+
+function downloadReceiptPdfButton() {
+  return $BN({ text: 'Download PDF', color: 'info', icon: 'mdi-download-outline' }, {
+    onClicked: async (button) => {
+      try {
+        const reservationId = String(button.$master?.$get('id') || '');
+        const rentalProviderId = getRentalProviderId();
+        if (!reservationId) throw new Error('Unable to identify the reservation.');
+        const apiBase = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+        await downloadReceiptPdf(`${apiBase}/rental-providers/${rentalProviderId}/reservations/${reservationId}/receipt/pdf`, `reservation-${reservationId}.pdf`);
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Unable to download the receipt right now.');
+      }
+    },
+  });
+}
+
+function printLabelButton() {
+  return $BN({ text: 'Print Label', color: 'secondary', icon: 'mdi-tag-outline' }, {
+    onClicked: async (button) => {
+      try {
+        await printReservationLabel(button.$master?.$data);
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Unable to print the label right now.');
+      }
+    },
+  });
+}
+
 const trigger = (defaultQuery: Record<string, any> = {}) => $TG({
   title: 'Reservations',
   selectFields: ['id','reservationNumber', 'customerDisplayName', 'fulfillmentMethod', 'startDate', 'endDate', 'totalAmount', 'currency', 'paymentStatus', 'reservationStatus', 'createdAt'],
@@ -1101,6 +1147,12 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
 
     buttons.push(refreshButton(report));
     buttons.push(updateNotesButton(report));
+    buttons.push(printLabelButton());
+
+    if (paymentStatus === 'paid') {
+      buttons.push(printReceiptButton());
+      buttons.push(downloadReceiptPdfButton());
+    }
 
     if (['requested', 'confirmed'].includes(String(statusRef.value || '').trim().toLowerCase())) {
       buttons.push(editReservationButton(report));

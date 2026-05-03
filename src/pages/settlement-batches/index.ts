@@ -529,3 +529,10 @@ export const rentalRemittanceBatchesMenu = () => makeCollectionMenu({
   collection: rentalRemittanceBatchesCollection,
   access: rentalAccess('rental.finance.view'),
 })
+
+export function openRentalSettlementBatchReport(batchId: string, flowType: BatchFlowType = 'payout') {
+  const rep = report(flowType)
+  rep.$params.objectId = batchId
+  rep.$params.mode = 'display'
+  AppManager.showReport(rep)
+}
