@@ -630,3 +630,22 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
     void dashboard.refresh();
   },
 });
+
+export function applyRentalDashboardThemeMode(mode: 'light' | 'dark') {
+  const params = (RENTAL_DASHBOARD_WIDGET as any)?.$params;
+  if (!params) return;
+
+  if (mode === 'dark') {
+    params.theme = 'dark';
+    params.backgroundColor = '#11171d';
+    params.backgroundGradient =
+      'radial-gradient(circle at top left, rgba(232,122,63,0.18), transparent 30%), radial-gradient(circle at 85% 15%, rgba(242,195,91,0.14), transparent 24%), radial-gradient(circle at bottom right, rgba(45,143,122,0.16), transparent 26%), linear-gradient(180deg, #1a2027 0%, #151b22 46%, #11171d 100%)';
+    params.textColor = '#e2e8f0';
+    return;
+  }
+
+  params.theme = 'light';
+  params.backgroundColor = '#fbf8f4';
+  params.backgroundGradient = 'linear-gradient(180deg, rgba(255,252,248,0.98) 0%, rgba(246,240,231,0.94) 100%)';
+  params.textColor = '#3b2a18';
+}

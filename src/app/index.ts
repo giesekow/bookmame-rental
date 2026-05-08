@@ -13,6 +13,21 @@ import {
 import { buildHomeMenu } from './menu';
 import { createRentalSwitchSelector } from './rental-switch';
 import { useAppStore } from '../store/app';
+import { resolveThemeMode, saveThemeMode } from '../misc/theme-mode';
+
+type ThemeMode = 'light' | 'dark';
+
+const lightShell = {
+  backgroundColor: '#f5f2ef',
+  backgroundGradient: 'linear-gradient(160deg, rgba(255,252,248,0.95) 0%, rgba(244,238,231,0.90) 52%, rgba(225,214,198,0.94) 100%)',
+  backgroundOverlay: 'linear-gradient(180deg, rgba(255,255,255,0.76) 0%, rgba(248,245,240,0.90) 100%)',
+};
+
+const darkShell = {
+  backgroundColor: '#11171d',
+  backgroundGradient: 'radial-gradient(circle at top left, rgba(232,122,63,0.18), transparent 30%), radial-gradient(circle at 85% 15%, rgba(242,195,91,0.14), transparent 24%), radial-gradient(circle at bottom right, rgba(45,143,122,0.16), transparent 26%), linear-gradient(180deg, #1a2027 0%, #151b22 46%, #11171d 100%)',
+  backgroundOverlay: 'linear-gradient(180deg, rgba(17,23,29,0.40) 0%, rgba(17,23,29,0.62) 100%)',
+};
 
 export function createMainApp() {
   return new AppMain(
@@ -25,9 +40,7 @@ export function createMainApp() {
       showFooter: true,
       headerLayout: 'auto',
       footerLayout: 'auto',
-      backgroundColor: '#f5f2ef',
-      backgroundGradient: 'linear-gradient(160deg, rgba(255,252,248,0.95) 0%, rgba(244,238,231,0.90) 52%, rgba(225,214,198,0.94) 100%)',
-      backgroundOverlay: 'linear-gradient(180deg, rgba(255,255,255,0.76) 0%, rgba(248,245,240,0.90) 100%)',
+      ...lightShell,
     },
     {
       menu: async () => buildHomeMenu(),
@@ -78,7 +91,15 @@ export function createMainApp() {
           mobileLocation: 'header',
         }, {
           buttons() {
+            const currentMode = resolveThemeMode(Api.instance.userRef?.value ?? null);
+            const nextMode = currentMode === 'dark' ? 'light' : 'dark';
             return [
+              $BN({ text: `Theme: ${currentMode === 'dark' ? 'Dark' : 'Light'} (Switch to ${nextMode === 'dark' ? 'Dark' : 'Light'})`, icon: currentMode === 'dark' ? 'mdi-weather-night' : 'mdi-white-balance-sunny' }, {
+                onClicked() {
+                  saveThemeMode(nextMode);
+                  window.dispatchEvent(new CustomEvent('bookmame-theme-mode-changed'));
+                },
+              }),
               { label: 'Session', type: 'separator' },
               $BN({ text: 'Logout', icon: 'mdi-lock' }, {
                 onClicked() {
@@ -114,9 +135,18 @@ export function createPlainScreen() {
   return new AppMain({
     ref: 'bookmame-rental',
     title: import.meta.env.VITE_APP_TITLE,
-    backgroundColor: '#f5f2ef',
-    backgroundGradient: 'linear-gradient(160deg, rgba(255,252,248,0.95) 0%, rgba(244,238,231,0.90) 52%, rgba(225,214,198,0.94) 100%)',
+    ...lightShell,
   });
+}
+
+export function applyShellThemeMode(
+  app: AppMain,
+  plainScreen: AppMain,
+  mode: ThemeMode,
+) {
+  const shell = mode === 'dark' ? darkShell : lightShell;
+  Object.assign(app.$params, shell);
+  Object.assign(plainScreen.$params, shell);
 }
 
 export function createAccessDeniedScreen() {

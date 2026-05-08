@@ -1,6 +1,8 @@
 import { createVuetifyExtendedApp } from 'vuetify-extended';
 import { createMainApp } from './app';
 
+export const mainApp = createMainApp();
+
 export function initializeBootstrap() {
   const bootstrap = createVuetifyExtendedApp({
     api: {
@@ -24,7 +26,7 @@ export function initializeBootstrap() {
         authRefreshMethod: 'get',
       },
     },
-    app: createMainApp(),
+    app: mainApp,
     dialogs: {
       progressSize: 96,
       progressWidth: 10,

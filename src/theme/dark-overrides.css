@@ -1,0 +1,62 @@
+html[data-theme='dark'] .v-card,
+html[data-theme='dark'] .v-sheet,
+html[data-theme='dark'] .v-list,
+html[data-theme='dark'] .v-table,
+html[data-theme='dark'] .v-navigation-drawer,
+html[data-theme='dark'] .v-menu > .v-overlay__content .v-list {
+  background: rgba(34, 41, 50, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(246, 237, 226, 0.92) !important;
+}
+
+html[data-theme='dark'] .v-btn,
+html[data-theme='dark'] .v-chip,
+html[data-theme='dark'] .v-alert {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html[data-theme='dark'] .v-field,
+html[data-theme='dark'] .v-input,
+html[data-theme='dark'] .v-select,
+html[data-theme='dark'] .v-text-field {
+  color: rgba(246, 237, 226, 0.92) !important;
+}
+
+html[data-theme='dark'] .v-field .v-field__outline,
+html[data-theme='dark'] .v-field .v-field__overlay {
+  border-color: rgba(246, 237, 226, 0.14) !important;
+}
+
+html[data-theme='dark'] [style*='background:#fff'],
+html[data-theme='dark'] [style*='background:#ffffff'],
+html[data-theme='dark'] [style*='background:#f7fbff'],
+html[data-theme='dark'] [style*='background:#f8fbff'],
+html[data-theme='dark'] [style*='background:#f5fbff'],
+html[data-theme='dark'] [style*='background:#fffaf'],
+html[data-theme='dark'] [style*='background:#edf4ff'],
+html[data-theme='dark'] [style*='background:#eef4fa'],
+html[data-theme='dark'] [style*='background:#f8fbfe'] {
+  background: rgba(34, 41, 50, 0.9) !important;
+  color: rgba(246, 237, 226, 0.92) !important;
+}
+
+html[data-theme='dark'] [style*='border:1px solid #d'],
+html[data-theme='dark'] [style*='border:1px solid #c'],
+html[data-theme='dark'] [style*='border:1px solid #e'],
+html[data-theme='dark'] [style*='border:1px solid #f'] {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-theme='dark'] [style*='color:#10263b'],
+html[data-theme='dark'] [style*='color:#274056'],
+html[data-theme='dark'] [style*='color:#476079'],
+html[data-theme='dark'] [style*='color:#61768b'],
+html[data-theme='dark'] [style*='color:#183042'],
+html[data-theme='dark'] [style*='color:#355168'],
+html[data-theme='dark'] [style*='color:#4a6272'],
+html[data-theme='dark'] [style*='color:#536f85'],
+html[data-theme='dark'] [style*='color:#173223'],
+html[data-theme='dark'] [style*='color:#17232f'],
+html[data-theme='dark'] [style*='color:#3b2a18'] {
+  color: rgba(246, 237, 226, 0.92) !important;
+}
