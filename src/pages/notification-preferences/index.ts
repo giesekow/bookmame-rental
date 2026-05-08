@@ -1,4 +1,5 @@
 import { $BN, $FD, $FM, $PT, $RP, Api, Dialogs, Field, Part } from 'vuetify-extended'
+import { rentalAccess } from '../../misc/access'
 
 const REPORT_TOKEN = 'rental-notification-preferences'
 let activePreferenceReport: any = null
@@ -214,6 +215,7 @@ export const rentalNotificationPreferencesReport = () => {
           children: () => fields,
         }),
       ],
+      access: rentalAccess('rental.notifications.view'),
     }),
     sideButtons: () => [
       $BN({ text: 'Reload', color: 'secondary' }, {
@@ -229,5 +231,6 @@ export const rentalNotificationPreferencesReport = () => {
       bindPreferenceEvents()
       void loadPreferences(report)
     },
+    access: rentalAccess('rental.notifications.view'),
   })
 }
