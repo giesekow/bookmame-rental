@@ -48,15 +48,52 @@ html[data-theme='dark'] [style*='border:1px solid #f'] {
 }
 
 html[data-theme='dark'] [style*='color:#10263b'],
+html[data-theme='dark'] [style*='color:#0e2436'],
+html[data-theme='dark'] [style*='color:#0f2436'],
 html[data-theme='dark'] [style*='color:#274056'],
 html[data-theme='dark'] [style*='color:#476079'],
 html[data-theme='dark'] [style*='color:#61768b'],
 html[data-theme='dark'] [style*='color:#183042'],
 html[data-theme='dark'] [style*='color:#355168'],
 html[data-theme='dark'] [style*='color:#4a6272'],
+html[data-theme='dark'] [style*='color:#4a8fa8'],
 html[data-theme='dark'] [style*='color:#536f85'],
 html[data-theme='dark'] [style*='color:#173223'],
 html[data-theme='dark'] [style*='color:#17232f'],
 html[data-theme='dark'] [style*='color:#3b2a18'] {
+  color: rgba(246, 237, 226, 0.92) !important;
+}
+
+html[data-theme='dark'] [style*='background:#eaf3ff'],
+html[data-theme='dark'] [style*='background:#fff3e8'],
+html[data-theme='dark'] [style*='background:#eef9f1'],
+html[data-theme='dark'] [style*='background:#e7f7ef'],
+html[data-theme='dark'] [style*='background:#fff8dd'],
+html[data-theme='dark'] [style*='background:#f5f0ff'],
+html[data-theme='dark'] [style*='background:#f6f9e7'],
+html[data-theme='dark'] [style*='background:#f8fcf9'],
+html[data-theme='dark'] [style*='background:#f8fcf8'],
+html[data-theme='dark'] [style*='background:#f8fcf6'],
+html[data-theme='dark'] [style*='background:#faf8ff'],
+html[data-theme='dark'] [style*='background:#faf2e4'],
+html[data-theme='dark'] [style*='background:#eef6fb'],
+html[data-theme='dark'] [style*='background:#eef6ea'],
+html[data-theme='dark'] [style*='background:#eef6fc'],
+html[data-theme='dark'] [style*='background:#fffaf5'] {
+  background: rgba(34, 41, 50, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(246, 237, 226, 0.92) !important;
+}
+
+html[data-theme='dark'] [style*='color:#1f5e9d'],
+html[data-theme='dark'] [style*='color:#9a4d12'],
+html[data-theme='dark'] [style*='color:#1f6b36'],
+html[data-theme='dark'] [style*='color:#1f7a4d'],
+html[data-theme='dark'] [style*='color:#8a6500'],
+html[data-theme='dark'] [style*='color:#2a6f9a'],
+html[data-theme='dark'] [style*='color:#264030'],
+html[data-theme='dark'] [style*='color:#8a5a12'],
+html[data-theme='dark'] [style*='color:#556620'],
+html[data-theme='dark'] [style*='color:#124064'] {
   color: rgba(246, 237, 226, 0.92) !important;
 }
