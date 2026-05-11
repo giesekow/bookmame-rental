@@ -1,4 +1,4 @@
-import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, AppManager, Button, DialogForm, Dialogs, Report } from 'vuetify-extended';
+import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, AppManager, Button, DialogForm, Dialogs, Master, Report, SimpleDate } from 'vuetify-extended';
 import { ref, Ref } from 'vue';
 import { rentalAccess } from '../../misc/access';
 import { useAppStore } from '../../store/app';
@@ -125,9 +125,9 @@ function renderAttributeSummary(baseValue: unknown, variantValue: unknown) {
   return `
     <div style="margin-top:10px; display:grid; gap:8px;">
       ${pairs.map((pair, index) => `
-        <div style="${index === 0 ? '' : 'padding-top:10px; border-top:1px solid rgba(133,101,71,0.14);'}">
-          <div style="font-size:11px; letter-spacing:.05em; text-transform:uppercase; font-weight:700; color:#8a7768; margin-bottom:4px;">${escapeHtml(pair.label)}</div>
-          <div style="font-size:13px; color:#241a14; word-break:break-word;">${escapeHtml(pair.value)}</div>
+        <div style="${index === 0 ? '' : 'padding-top:10px; border-top:1px solid rgba(var(--v-theme-on-surface),0.14);'}">
+          <div style="font-size:11px; letter-spacing:.05em; text-transform:uppercase; font-weight:700; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:4px;">${escapeHtml(pair.label)}</div>
+          <div style="font-size:13px; color:var(--v-theme-on-surface); word-break:break-word;">${escapeHtml(pair.value)}</div>
         </div>
       `).join('')}
     </div>
@@ -188,117 +188,119 @@ function renderReservationHtml(reservation: any) {
     : reservation?.rentalInventoryVariant?.attributes;
 
   return `
-    <div style="font-family:inherit; color:#241a14; background:#fffaf5; border:1px solid #eadfcf; border-radius:18px; padding:18px;">
+    <div style="font-family:inherit; color:var(--v-theme-on-surface); background:var(--v-theme-surface); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:18px; padding:18px;">
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:18px;">
-        <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Reservation</div>
+        <div style="background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; padding:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Reservation</div>
           <div style="font-weight:800; font-size:20px;">${escapeHtml(reservation?.reservationNumber || 'Reservation')}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Created ${escapeHtml(dateTime(reservation?.createdAt))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Created ${escapeHtml(dateTime(reservation?.createdAt))}</div>
         </div>
-        <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Customer</div>
+        <div style="background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; padding:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Customer</div>
           <div style="font-weight:700;">${escapeHtml(reservation?.customerDisplayName || reservation?.customerAccountId || 'Unknown customer')}</div>
-          ${reservation?.customerEmail ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(reservation.customerEmail)}</div>` : ''}
-          ${reservation?.customerPhoneNumber ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(reservation.customerPhoneNumber)}</div>` : ''}
+          ${reservation?.customerEmail ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml(reservation.customerEmail)}</div>` : ''}
+          ${reservation?.customerPhoneNumber ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml(reservation.customerPhoneNumber)}</div>` : ''}
         </div>
-        <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Item</div>
+        <div style="background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; padding:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Item</div>
           <div style="font-weight:700;">${escapeHtml(itemName)}</div>
-          ${variantName ? `<div style="margin-top:4px; color:#5f4e43;">Variant: ${escapeHtml(variantName)}</div>` : ''}
-          ${categoryLabel ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(categoryLabel)}</div>` : ''}
+          ${variantName ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Variant: ${escapeHtml(variantName)}</div>` : ''}
+          ${categoryLabel ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml(categoryLabel)}</div>` : ''}
           ${renderAttributeSummary(itemAttributes, variantAttributes)}
-          <div style="margin-top:4px; color:#5f4e43;">Qty: ${escapeHtml(reservation?.quantity || 1)}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Qty: ${escapeHtml(reservation?.quantity || 1)}</div>
         </div>
-        <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Amount</div>
+        <div style="background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; padding:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Amount</div>
           <div style="font-weight:700;">${escapeHtml(money(reservation?.totalAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Payable now: ${escapeHtml(money(reservation?.paymentPayableAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Subtotal: ${escapeHtml(money(reservation?.subtotalAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Outbound delivery: ${escapeHtml(money(reservation?.outboundDeliveryFeeAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Return collection: ${escapeHtml(money(reservation?.returnDeliveryFeeAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Deposit: ${escapeHtml(money(reservation?.securityDepositAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Deposit collection: ${escapeHtml(String(reservation?.securityDepositCollectionMethod || 'not_required').replace(/_/g, ' '))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Deposit status: ${escapeHtml(String(reservation?.securityDepositStatus || 'not_required').replace(/_/g, ' '))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Deposit held: ${escapeHtml(money(reservation?.securityDepositHeldAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Deposit collected: ${escapeHtml(money(reservation?.securityDepositCollectedAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Deposit deducted: ${escapeHtml(money(reservation?.securityDepositDeductedAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Deposit refunded: ${escapeHtml(money(reservation?.securityDepositRefundedAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Service charge: ${escapeHtml(money(reservation?.serviceChargeAmount, reservation?.currency))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Provider net: ${escapeHtml(money(reservation?.netAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Payable now: ${escapeHtml(money(reservation?.paymentPayableAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Subtotal: ${escapeHtml(money(reservation?.subtotalAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Outbound delivery: ${escapeHtml(money(reservation?.outboundDeliveryFeeAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Return collection: ${escapeHtml(money(reservation?.returnDeliveryFeeAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Deposit: ${escapeHtml(money(reservation?.securityDepositAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Deposit collection: ${escapeHtml(String(reservation?.securityDepositCollectionMethod || 'not_required').replace(/_/g, ' '))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Deposit status: ${escapeHtml(String(reservation?.securityDepositStatus || 'not_required').replace(/_/g, ' '))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Deposit held: ${escapeHtml(money(reservation?.securityDepositHeldAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Deposit collected: ${escapeHtml(money(reservation?.securityDepositCollectedAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Deposit deducted: ${escapeHtml(money(reservation?.securityDepositDeductedAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Deposit refunded: ${escapeHtml(money(reservation?.securityDepositRefundedAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Service charge: ${escapeHtml(money(reservation?.serviceChargeAmount, reservation?.currency))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Provider net: ${escapeHtml(money(reservation?.netAmount, reservation?.currency))}</div>
         </div>
       </div>
 
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:18px;">
-        <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Rental Period</div>
+        <div style="background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; padding:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Rental Period</div>
           <div style="font-weight:700;">${escapeHtml(dateTime(reservation?.startDate))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">to ${escapeHtml(dateTime(reservation?.endDate))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">${escapeHtml(reservation?.dayCount || 0)} day(s)</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">to ${escapeHtml(dateTime(reservation?.endDate))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml(reservation?.dayCount || 0)} day(s)</div>
         </div>
-        <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Status</div>
+        <div style="background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; padding:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Status</div>
           <div style="font-weight:700;">${escapeHtml(String(reservation?.reservationStatus || 'requested').replace(/_/g, ' '))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Payment: ${escapeHtml(String(reservation?.paymentStatus || 'pending').replace(/_/g, ' '))}</div>
-          <div style="margin-top:4px; color:#5f4e43;">Method: ${escapeHtml(String(reservation?.paymentMethod || 'n/a').replace(/_/g, ' '))}</div>
-          ${reservation?.paymentProvider ? `<div style="margin-top:4px; color:#5f4e43;">Provider: ${escapeHtml(String(reservation.paymentProvider).replace(/_/g, ' '))}</div>` : ''}
-          ${reservation?.paymentProviderOrderId ? `<div style="margin-top:4px; color:#5f4e43;">Provider Order ID: ${escapeHtml(reservation.paymentProviderOrderId)}</div>` : ''}
-          ${reservation?.paymentReference ? `<div style="margin-top:4px; color:#5f4e43;">Reference: ${escapeHtml(reservation.paymentReference)}</div>` : ''}
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Payment: ${escapeHtml(String(reservation?.paymentStatus || 'pending').replace(/_/g, ' '))}</div>
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Method: ${escapeHtml(String(reservation?.paymentMethod || 'n/a').replace(/_/g, ' '))}</div>
+          ${reservation?.paymentProvider ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Provider: ${escapeHtml(String(reservation.paymentProvider).replace(/_/g, ' '))}</div>` : ''}
+          ${reservation?.paymentProviderOrderId ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Provider Order ID: ${escapeHtml(reservation.paymentProviderOrderId)}</div>` : ''}
+          ${reservation?.paymentReference ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Reference: ${escapeHtml(reservation.paymentReference)}</div>` : ''}
         </div>
-        <div style="background:#fff; border:1px solid #eadfcf; border-radius:14px; padding:14px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Fulfilment</div>
+        <div style="background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; padding:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Fulfilment</div>
           <div style="font-weight:700;">${escapeHtml(String(reservation?.fulfillmentMethod || 'customer_pickup').replace(/_/g, ' '))}</div>
-          ${reservation?.deliveryCompany?.name ? `<div style="margin-top:4px; color:#5f4e43;">Outbound: ${escapeHtml(reservation.deliveryCompany.name)}</div>` : ''}
-          ${reservation?.fulfillmentMethod === 'customer_pickup' ? `<div style="margin-top:4px; color:#5f4e43;">Customer pickup handoff: ${escapeHtml(String(reservation?.customerPickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.customerPickupHandoffCode && String(reservation?.customerPickupHandoffStatus || '') === 'requested' ? ` · PIN ${escapeHtml(reservation.customerPickupHandoffCode)}` : ''}</div>` : ''}
-          <div style="margin-top:4px; color:#5f4e43;">Return: ${escapeHtml(String(reservation?.returnFulfillmentMethod || 'return_by_customer').replace(/_/g, ' '))}</div>
-          ${reservation?.returnDeliveryCompany?.name ? `<div style="margin-top:4px; color:#5f4e43;">Return partner: ${escapeHtml(reservation.returnDeliveryCompany.name)}</div>` : ''}
-          ${reservation?.returnFulfillmentMethod === 'return_by_customer' ? `<div style="margin-top:4px; color:#5f4e43;">Direct return handoff: ${escapeHtml(String(reservation?.customerReturnHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.customerReturnHandoffCode && String(reservation?.customerReturnHandoffStatus || '') === 'requested' ? ` · PIN ${escapeHtml(reservation.customerReturnHandoffCode)}` : ''}</div>` : ''}
+          ${reservation?.deliveryCompany?.name ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Outbound: ${escapeHtml(reservation.deliveryCompany.name)}</div>` : ''}
+          ${reservation?.fulfillmentMethod === 'customer_pickup' ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Customer pickup handoff: ${escapeHtml(String(reservation?.customerPickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.customerPickupHandoffCode && String(reservation?.customerPickupHandoffStatus || '') === 'requested' ? ` · PIN ${escapeHtml(reservation.customerPickupHandoffCode)}` : ''}</div>` : ''}
+          <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Return: ${escapeHtml(String(reservation?.returnFulfillmentMethod || 'return_by_customer').replace(/_/g, ' '))}</div>
+          ${reservation?.returnDeliveryCompany?.name ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Return partner: ${escapeHtml(reservation.returnDeliveryCompany.name)}</div>` : ''}
+          ${reservation?.returnFulfillmentMethod === 'return_by_customer' ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Direct return handoff: ${escapeHtml(String(reservation?.customerReturnHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.customerReturnHandoffCode && String(reservation?.customerReturnHandoffStatus || '') === 'requested' ? ` · PIN ${escapeHtml(reservation.customerReturnHandoffCode)}` : ''}</div>` : ''}
         </div>
       </div>
 
       ${reservation?.deliveryAddressLine1 ? `
-        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Delivery / Collection Address</div>
-          <div style="color:#5f4e43; white-space:pre-wrap;">${escapeHtml([
+        <div style="padding:14px; background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Delivery / Collection Address</div>
+          <div style="color:rgba(var(--v-theme-on-surface),0.7); white-space:pre-wrap;">${escapeHtml([
             reservation.deliveryLabel,
             reservation.deliveryAddressLine1,
             reservation.deliveryAddressLine2,
             reservation.deliveryLandmark,
           ].filter(Boolean).join(', '))}</div>
-          ${reservation?.deliveryContactName ? `<div style="margin-top:6px; color:#5f4e43;">Contact: ${escapeHtml(reservation.deliveryContactName)}</div>` : ''}
-          ${reservation?.deliveryContactPhone ? `<div style="margin-top:4px; color:#5f4e43;">Phone: ${escapeHtml(reservation.deliveryContactPhone)}</div>` : ''}
+          ${reservation?.deliveryContactName ? `<div style="margin-top:6px; color:rgba(var(--v-theme-on-surface),0.7);">Contact: ${escapeHtml(reservation.deliveryContactName)}</div>` : ''}
+          ${reservation?.deliveryContactPhone ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Phone: ${escapeHtml(reservation.deliveryContactPhone)}</div>` : ''}
         </div>
       ` : ''}
 
       ${reservation?.notes ? `
-        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Notes</div>
-          <div style="color:#5f4e43; white-space:pre-wrap;">${escapeHtml(reservation.notes)}</div>
+        <div style="padding:14px; background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Notes</div>
+          <div style="color:rgba(var(--v-theme-on-surface),0.7); white-space:pre-wrap;">${escapeHtml(reservation.notes)}</div>
         </div>
       ` : ''}
 
       ${(reservation?.securityDepositResolutionReason || reservation?.securityDepositRefundReference || reservation?.securityDepositResolvedAt) ? `
-        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:8px;">Deposit Resolution</div>
-          ${reservation?.securityDepositResolutionReason ? `<div style="color:#5f4e43; margin-top:4px;">Reason: ${escapeHtml(reservation.securityDepositResolutionReason)}</div>` : ''}
-          ${reservation?.securityDepositCollectionReference ? `<div style="color:#5f4e43; margin-top:4px;">Collection Reference: ${escapeHtml(reservation.securityDepositCollectionReference)}</div>` : ''}
-          ${reservation?.securityDepositRefundReference ? `<div style="color:#5f4e43; margin-top:4px;">Refund Reference: ${escapeHtml(reservation.securityDepositRefundReference)}</div>` : ''}
-          ${reservation?.securityDepositResolvedAt ? `<div style="color:#5f4e43; margin-top:4px;">Resolved At: ${escapeHtml(dateTime(reservation.securityDepositResolvedAt))}</div>` : ''}
+        <div style="padding:14px; background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Deposit Resolution</div>
+          ${reservation?.securityDepositResolutionReason ? `<div style="color:rgba(var(--v-theme-on-surface),0.7); margin-top:4px;">Reason: ${escapeHtml(reservation.securityDepositResolutionReason)}</div>` : ''}
+          ${reservation?.securityDepositCollectionReference ? `<div style="color:rgba(var(--v-theme-on-surface),0.7); margin-top:4px;">Collection Reference: ${escapeHtml(reservation.securityDepositCollectionReference)}</div>` : ''}
+          ${reservation?.securityDepositRefundReference ? `<div style="color:rgba(var(--v-theme-on-surface),0.7); margin-top:4px;">Refund Reference: ${escapeHtml(reservation.securityDepositRefundReference)}</div>` : ''}
+          ${reservation?.securityDepositResolvedAt ? `<div style="color:rgba(var(--v-theme-on-surface),0.7); margin-top:4px;">Resolved At: ${escapeHtml(dateTime(reservation.securityDepositResolvedAt))}</div>` : ''}
         </div>
       ` : ''}
 
       ${depositRefunds.length ? `
-        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:10px;">Deposit Refund Activity</div>
+        <div style="padding:14px; background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:10px;">Deposit Refund Activity</div>
           <div style="display:grid; gap:10px;">
             ${depositRefunds.map((refund: any) => `
-              <div style="padding:12px; border:1px solid #eadfcf; border-radius:12px;">
-                <div style="font-weight:700; color:#241a14;">${escapeHtml(String(refund?.status || 'pending').replace(/_/g, ' '))}</div>
-                <div style="margin-top:4px; color:#5f4e43;">Requested: ${escapeHtml(money(refund?.requestedAmount, refund?.currency || reservation?.currency))}</div>
-                ${Number(refund?.refundedAmount || 0) > 0 ? `<div style="margin-top:4px; color:#5f4e43;">Refunded: ${escapeHtml(money(refund?.refundedAmount, refund?.currency || reservation?.currency))}</div>` : ''}
-                ${refund?.provider ? `<div style="margin-top:4px; color:#5f4e43;">Provider: ${escapeHtml(String(refund.provider).replace(/_/g, ' '))}</div>` : ''}
-                ${refund?.providerMessage ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(refund.providerMessage)}</div>` : ''}
-                ${refund?.manualReference ? `<div style="margin-top:4px; color:#5f4e43;">Reference: ${escapeHtml(refund.manualReference)}</div>` : ''}
-                ${refund?.createdAt ? `<div style="margin-top:4px; color:#5f4e43;">Logged: ${escapeHtml(dateTime(refund.createdAt))}</div>` : ''}
+              <div style="padding:12px; border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:12px;">
+                <div style="font-weight:700; color:var(--v-theme-on-surface);">${escapeHtml(String(refund?.status || 'pending').replace(/_/g, ' '))}</div>
+                <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Requested: ${escapeHtml(money(refund?.requestedAmount, refund?.currency || reservation?.currency))}</div>
+                ${Number(refund?.refundedAmount || 0) > 0 ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Refunded: ${escapeHtml(money(refund?.refundedAmount, refund?.currency || reservation?.currency))}</div>` : ''}
+                ${refund?.provider ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Provider: ${escapeHtml(String(refund.provider).replace(/_/g, ' '))}</div>` : ''}
+                ${refund?.providerMessage ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml(refund.providerMessage)}</div>` : ''}
+                ${refund?.providerRefundId ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Gateway Refund ID: ${escapeHtml(refund.providerRefundId)}</div>` : ''}
+                ${refund?.expectedAt ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Expected By: ${escapeHtml(dateTime(refund.expectedAt))}</div>` : ''}
+                ${refund?.manualReference ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Reference: ${escapeHtml(refund.manualReference)}</div>` : ''}
+                ${refund?.createdAt ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Logged: ${escapeHtml(dateTime(refund.createdAt))}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -306,16 +308,16 @@ function renderReservationHtml(reservation: any) {
       ` : ''}
 
       ${deliveryTasks.length ? `
-        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:10px;">Delivery Tasks</div>
+        <div style="padding:14px; background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:10px;">Delivery Tasks</div>
           <div style="display:grid; gap:10px;">
             ${deliveryTasks.map((task: any) => `
-              <div style="border:1px solid #eadfcf; border-radius:12px; padding:12px;">
+              <div style="border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:12px; padding:12px;">
                 <div style="font-weight:700;">${escapeHtml(String(task.direction || '').replace(/_/g, ' '))} · ${escapeHtml(String(task.status || '').replace(/_/g, ' '))}</div>
-                <div style="margin-top:4px; color:#5f4e43;">${escapeHtml(task?.deliveryCompany?.name || 'Delivery partner')} · ${escapeHtml(money(task?.feeAmount, task?.currency || reservation?.currency))}</div>
-                ${task?.pickupHandoffStatus ? `<div style="margin-top:4px; color:#5f4e43;">Pickup handoff: ${escapeHtml(String(task.pickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}${task?.pickupHandoffCode && String(task.pickupHandoffStatus || '') === 'requested' ? ` · Rider PIN ${escapeHtml(task.pickupHandoffCode)}` : ''}</div>` : ''}
-                ${task?.deliveryConfirmationStatus ? `<div style="margin-top:4px; color:#5f4e43;">Delivery confirmation: ${escapeHtml(String(task.deliveryConfirmationStatus || 'not_requested').replace(/_/g, ' '))}${task?.deliveryConfirmationCode && String(task.deliveryConfirmationStatus || '') === 'requested' ? ` · PIN ${escapeHtml(task.deliveryConfirmationCode)}` : ''}</div>` : ''}
-                ${task?.addressLine1 ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml([task.addressLine1, task.addressLine2, task.landmark].filter(Boolean).join(', '))}</div>` : ''}
+                <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml(task?.deliveryCompany?.name || 'Delivery partner')} · ${escapeHtml(money(task?.feeAmount, task?.currency || reservation?.currency))}</div>
+                ${task?.pickupHandoffStatus ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Pickup handoff: ${escapeHtml(String(task.pickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}${task?.pickupHandoffCode && String(task.pickupHandoffStatus || '') === 'requested' ? ` · Rider PIN ${escapeHtml(task.pickupHandoffCode)}` : ''}</div>` : ''}
+                ${task?.deliveryConfirmationStatus ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Delivery confirmation: ${escapeHtml(String(task.deliveryConfirmationStatus || 'not_requested').replace(/_/g, ' '))}${task?.deliveryConfirmationCode && String(task.deliveryConfirmationStatus || '') === 'requested' ? ` · PIN ${escapeHtml(task.deliveryConfirmationCode)}` : ''}</div>` : ''}
+                ${task?.addressLine1 ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml([task.addressLine1, task.addressLine2, task.landmark].filter(Boolean).join(', '))}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -323,15 +325,15 @@ function renderReservationHtml(reservation: any) {
       ` : ''}
 
       ${ledgerLines.length ? `
-        <div style="padding:14px; background:#fff; border:1px solid #eadfcf; border-radius:14px; margin-bottom:18px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:10px;">Ledger Lines</div>
+        <div style="padding:14px; background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; margin-bottom:18px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:10px;">Ledger Lines</div>
           <div style="display:grid; gap:10px;">
             ${ledgerLines.map((line: any) => `
-              <div style="border:1px solid #eadfcf; border-radius:12px; padding:12px;">
+              <div style="border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:12px; padding:12px;">
                 <div style="font-weight:700;">${escapeHtml(line?.label || line?.entryType || 'Ledger line')}</div>
-                <div style="margin-top:4px; color:#5f4e43;">${escapeHtml(money(line?.amount, line?.currency || reservation?.currency))} · ${escapeHtml(String(line?.direction || 'credit'))}${line?.isRefundable ? ' · Refundable' : ''}</div>
-                ${(line?.beneficiaryType || line?.beneficiaryId) ? `<div style="margin-top:4px; color:#5f4e43;">${escapeHtml(rentalLedgerBeneficiaryLabel(reservation, line))}</div>` : ''}
-                ${(line?.beneficiaryType || line?.beneficiaryId) ? `<div style="margin-top:4px; color:#8a7768; font-size:12px; text-transform:uppercase; letter-spacing:.05em;">${escapeHtml(rentalLedgerBeneficiaryMeta(line))}</div>` : ''}
+                <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml(money(line?.amount, line?.currency || reservation?.currency))} · ${escapeHtml(String(line?.direction || 'credit'))}${line?.isRefundable ? ' · Refundable' : ''}</div>
+                ${(line?.beneficiaryType || line?.beneficiaryId) ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml(rentalLedgerBeneficiaryLabel(reservation, line))}</div>` : ''}
+                ${(line?.beneficiaryType || line?.beneficiaryId) ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.55); font-size:12px; text-transform:uppercase; letter-spacing:.05em;">${escapeHtml(rentalLedgerBeneficiaryMeta(line))}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -339,55 +341,22 @@ function renderReservationHtml(reservation: any) {
       ` : ''}
 
       ${reservation?.cancellationReason ? `
-        <div style="padding:14px; background:#fff; border:1px solid #f0d8d5; border-radius:14px; margin-bottom:14px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#a05b55; margin-bottom:8px;">Cancellation Reason</div>
-          <div style="color:#6d2f2a; white-space:pre-wrap;">${escapeHtml(reservation.cancellationReason)}</div>
+        <div style="padding:14px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.22); border-radius:14px; margin-bottom:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(239,68,68,0.85); margin-bottom:8px;">Cancellation Reason</div>
+          <div style="color:rgba(var(--v-theme-on-surface),0.8); white-space:pre-wrap;">${escapeHtml(reservation.cancellationReason)}</div>
         </div>
       ` : ''}
 
       ${reservation?.failedReason ? `
-        <div style="padding:14px; background:#fff; border:1px solid #f0d8d5; border-radius:14px;">
-          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#a05b55; margin-bottom:8px;">Failure Reason</div>
-          <div style="color:#6d2f2a; white-space:pre-wrap;">${escapeHtml(reservation.failedReason)}</div>
+        <div style="padding:14px; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.22); border-radius:14px;">
+          <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(239,68,68,0.85); margin-bottom:8px;">Failure Reason</div>
+          <div style="color:rgba(var(--v-theme-on-surface),0.8); white-space:pre-wrap;">${escapeHtml(reservation.failedReason)}</div>
         </div>
       ` : ''}
     </div>
   `;
 }
 
-const fulfillmentOptions = [
-  { id: 'customer_pickup', name: 'Customer pickup' },
-  { id: 'partner_delivery', name: 'Partner delivery' },
-  { id: 'third_party_delivery', name: 'Third-party delivery' },
-];
-
-const returnFulfillmentOptions = [
-  { id: 'return_by_customer', name: 'Return by customer' },
-  { id: 'partner_collection', name: 'Partner collection' },
-  { id: 'third_party_collection', name: 'Third-party collection' },
-];
-
-async function configuredDeliveryPartnerOptions() {
-  const response = await Api.instance.service(`rental-providers/${getRentalProviderId()}/delivery-partners`).find({
-    query: {
-      $paginate: false,
-      $select: ['deliveryCompanyId', 'deliveryCompany.name', 'status', 'priorityRank'],
-      $sort: {
-        priorityRank: 1,
-      },
-    },
-  }) as any;
-
-  const items = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
-  const normalized = items
-    .filter((item: any) => String(item?.status || 'active').trim().toLowerCase() === 'active')
-    .map((item: any) => ({
-      id: item.deliveryCompanyId,
-      name: item.deliveryCompany?.name || item.deliveryCompanyId,
-    }));
-
-  return [{ id: '', name: 'No delivery company selected' }, ...normalized];
-}
 
 export async function updateRentalReservationView(master: any) {
   await master?.$load?.();
@@ -930,71 +899,6 @@ function updateNotesButton(report: Report) {
   });
 }
 
-function editReservationButton(report: Report) {
-  return $BN({ text: 'Edit Reservation', color: 'secondary' }, {
-    onClicked: async (button) => {
-      const current = button.$master?.$data || {};
-      const dialog = new DialogForm({}, {
-        form() {
-          return $FM({
-            title: 'Edit Reservation',
-            width: 680,
-          }, {
-            children: () => [
-              $PT({}, {
-                children: () => [
-                  $FD({ label: 'Customer Email', storage: 'customerEmail', type: 'text', cols: 6, hint: current.customerEmail || 'Leave blank to keep current value.' }),
-                  $FD({ label: 'Customer Phone', storage: 'customerPhoneNumber', type: 'text', cols: 6, hint: current.customerPhoneNumber || 'Leave blank to keep current value.' }),
-                  $FD({ label: 'Fulfilment Method', storage: 'fulfillmentMethod', type: 'select', cols: 6, hint: `Current: ${String(current.fulfillmentMethod || 'customer_pickup').replace(/_/g, ' ')}` }, {
-                    selectOptions: async () => fulfillmentOptions,
-                  }),
-                  $FD({ label: 'Outbound Delivery Partner', storage: 'deliveryCompanyId', type: 'select', cols: 6, hint: current.deliveryCompany?.name ? `Current: ${current.deliveryCompany.name}` : 'Only used for third-party delivery.' }, {
-                    selectOptions: configuredDeliveryPartnerOptions,
-                  }),
-                  $FD({ label: 'Return Method', storage: 'returnFulfillmentMethod', type: 'select', cols: 6, hint: `Current: ${String(current.returnFulfillmentMethod || 'return_by_customer').replace(/_/g, ' ')}` }, {
-                    selectOptions: async () => returnFulfillmentOptions,
-                  }),
-                  $FD({ label: 'Return Delivery Partner', storage: 'returnDeliveryCompanyId', type: 'select', cols: 6, hint: current.returnDeliveryCompany?.name ? `Current: ${current.returnDeliveryCompany.name}` : 'Only used for third-party collection.' }, {
-                    selectOptions: configuredDeliveryPartnerOptions,
-                  }),
-                ],
-              }),
-            ],
-            saved: async (form) => {
-              const fulfillmentMethod = String(form.$master?.$get('fulfillmentMethod') || current.fulfillmentMethod || 'customer_pickup');
-              const returnFulfillmentMethod = String(form.$master?.$get('returnFulfillmentMethod') || current.returnFulfillmentMethod || 'return_by_customer');
-              const deliveryCompanyId = fulfillmentMethod === 'third_party_delivery'
-                ? String(form.$master?.$get('deliveryCompanyId') || '')
-                : '';
-              const returnDeliveryCompanyId = returnFulfillmentMethod === 'third_party_collection'
-                ? String(form.$master?.$get('returnDeliveryCompanyId') || '')
-                : '';
-
-              try {
-                await patchReservation(String(button.$master?.$get('id') || ''), {
-                  customerEmail: String(form.$master?.$get('customerEmail') || '').trim() || current.customerEmail || undefined,
-                  customerPhoneNumber: String(form.$master?.$get('customerPhoneNumber') || '').trim() || current.customerPhoneNumber || undefined,
-                  fulfillmentMethod,
-                  deliveryCompanyId: deliveryCompanyId || null,
-                  returnFulfillmentMethod,
-                  returnDeliveryCompanyId: returnDeliveryCompanyId || null,
-                });
-                dialog.forceCancel();
-                await refreshReport(report);
-                Dialogs.$success('Reservation details updated.');
-              } catch (error: any) {
-                Dialogs.$error(error?.message || 'Failed to update reservation.');
-              }
-            },
-          });
-        },
-      });
-
-      AppManager.showDialog(dialog);
-    },
-  });
-}
-
 function refreshButton(report: Report) {
   return $BN({ text: 'Refresh', color: 'secondary' }, {
     onClicked: async () => {
@@ -1051,7 +955,7 @@ function printLabelButton() {
   });
 }
 
-const trigger = (defaultQuery: Record<string, any> = {}) => $TG({
+const trigger = (defaultQuery: Record<string, any> = {}) => () => $TG({
   title: 'Reservations',
   selectFields: ['id','reservationNumber', 'customerDisplayName', 'fulfillmentMethod', 'startDate', 'endDate', 'totalAmount', 'currency', 'paymentStatus', 'reservationStatus', 'createdAt'],
   headers: [
@@ -1095,8 +999,8 @@ const trigger = (defaultQuery: Record<string, any> = {}) => $TG({
     }),
   ],
   processQuery(query, trigger) {
-    const dueDateFrom = String(trigger.$master?.$get('dueDateFrom', String(defaultQuery?.dueDateFrom || todayDateInput())) || '').trim();
-    const dueDateTo = String(trigger.$master?.$get('dueDateTo', String(defaultQuery?.dueDateTo || todayDateInput())) || '').trim();
+    const dueDateFrom = trigger.$master?.$get('dueDateFrom') ? new SimpleDate(trigger.$master?.$get('dueDateFrom')).toMoment().toISOString().split('T')[0] : String(defaultQuery?.dueDateFrom || todayDateInput() || '').trim()
+    const dueDateTo = trigger.$master?.$get('dueDateTo') ? new SimpleDate(trigger.$master?.$get('dueDateTo')).toMoment().toISOString().split('T')[0] : String(defaultQuery?.dueDateTo || todayDateInput() || '').trim()
 
     if (dueDateFrom) query.dueDateFrom = dueDateFrom;
     else delete query.dueDateFrom;
@@ -1105,6 +1009,9 @@ const trigger = (defaultQuery: Record<string, any> = {}) => $TG({
     else delete query.dueDateTo;
 
     return query;
+  },
+  setup(trigger) {
+    trigger.setMaster(new Master())
   },
 });
 
@@ -1124,7 +1031,7 @@ const createForm = () => $FM({
 export const rentalReservationsReport = (reservationId?: string) => () => $RP({
   title: 'Reservation',
   fluid: true,
-  sideButtonWidth: 220,
+  sideButtonWidth: 280,
   ...(reservationId ? { objectId: reservationId, objectType: getServicePath() } : {}),
 }, {
   form: createForm,
@@ -1152,10 +1059,6 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
     if (paymentStatus === 'paid') {
       buttons.push(printReceiptButton());
       buttons.push(downloadReceiptPdfButton());
-    }
-
-    if (['requested', 'confirmed'].includes(String(statusRef.value || '').trim().toLowerCase())) {
-      buttons.push(editReservationButton(report));
     }
 
     if (paymentStatus === 'paid' && statusRef.value === 'requested') {
@@ -1241,10 +1144,10 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
   access: rentalAccess('rental.reservations.view'),
 });
 
-export const rentalReservationsCollection = (defaultQuery: Record<string, any> = {}) => $COL({
+export const rentalReservationsCollection = (defaultQuery: Record<string, any> = {}) => () => $COL({
   objectType: getServicePath(),
 }, {
   report: rentalReservationsReport(),
-  trigger: () => trigger(defaultQuery),
+  trigger: trigger(defaultQuery),
   access: rentalAccess('rental.reservations.view'),
 });

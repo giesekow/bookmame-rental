@@ -77,7 +77,7 @@ export function buildHomeMenu() {
           mode: 'display',
           color: 'info',
         }, {
-          collection: rentalReservationsCollection,
+          collection: rentalReservationsCollection(),
           access: rentalAccess('rental.reservations.view'),
         }),
         $MI({
