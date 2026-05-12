@@ -249,9 +249,11 @@ function renderReservationHtml(reservation: any) {
           <div style="font-weight:700;">${escapeHtml(String(reservation?.fulfillmentMethod || 'customer_pickup').replace(/_/g, ' '))}</div>
           ${reservation?.deliveryCompany?.name ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Outbound: ${escapeHtml(reservation.deliveryCompany.name)}</div>` : ''}
           ${reservation?.fulfillmentMethod === 'customer_pickup' ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Customer pickup handoff: ${escapeHtml(String(reservation?.customerPickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.customerPickupHandoffCode && String(reservation?.customerPickupHandoffStatus || '') === 'requested' ? ` · PIN ${escapeHtml(reservation.customerPickupHandoffCode)}` : ''}</div>` : ''}
+          ${reservation?.fulfillmentMethod === 'partner_delivery' ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Partner delivery handoff: ${escapeHtml(String(reservation?.partnerDeliveryHandoffStatus || 'not_requested').replace(/_/g, ' '))}</div>` : ''}
           <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Return: ${escapeHtml(String(reservation?.returnFulfillmentMethod || 'return_by_customer').replace(/_/g, ' '))}</div>
           ${reservation?.returnDeliveryCompany?.name ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Return partner: ${escapeHtml(reservation.returnDeliveryCompany.name)}</div>` : ''}
           ${reservation?.returnFulfillmentMethod === 'return_by_customer' ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Direct return handoff: ${escapeHtml(String(reservation?.customerReturnHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.customerReturnHandoffCode && String(reservation?.customerReturnHandoffStatus || '') === 'requested' ? ` · PIN ${escapeHtml(reservation.customerReturnHandoffCode)}` : ''}</div>` : ''}
+          ${reservation?.returnFulfillmentMethod === 'partner_collection' ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Partner collection handoff: ${escapeHtml(String(reservation?.partnerCollectionHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.partnerCollectionHandoffCode && String(reservation?.partnerCollectionHandoffStatus || '') === 'requested' ? ` · Your PIN ${escapeHtml(reservation.partnerCollectionHandoffCode)}` : ''}</div>` : ''}
         </div>
       </div>
 
@@ -467,6 +469,74 @@ function confirmButton(report: Report, statusRef: Ref<any>) {
   });
 }
 
+function confirmPaymentReceivedButton(report: Report) {
+  return $BN({ text: 'Confirm Payment Received', color: 'primary' }, {
+    onClicked: async (button) => {
+      const reservationId = String(button.$master?.$get('id') || '');
+      const paymentMethod = String(button.$master?.$get('paymentMethod') || '');
+      const methodLabel = paymentMethod === 'card_on_pickup' ? 'card' : 'cash';
+      const currency = String(button.$master?.$get('currency') || '');
+
+      const rentalPayableMinor = Number(button.$master?.$get('paymentPayableAmount') || 0);
+      const depositAmount = Number(button.$master?.$get('securityDepositAmount') || 0);
+      const depositHeld = Number(button.$master?.$get('securityDepositHeldAmount') || 0);
+      const depositCollectionMethod = String(button.$master?.$get('securityDepositCollectionMethod') || '').trim().toLowerCase();
+      const depositOwed = depositCollectionMethod === 'cash' && depositHeld <= 0 ? depositAmount : 0;
+      const totalMinor = rentalPayableMinor + depositOwed;
+
+      const expectedDisplay = money(totalMinor, currency);
+      const hint = depositOwed > 0
+        ? `Rental: ${money(rentalPayableMinor, currency)} + Deposit: ${money(depositOwed, currency)} = ${expectedDisplay}`
+        : `Expected: ${expectedDisplay}`;
+
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Confirm Payment Received',
+            width: 420,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({
+                    label: `Amount received (${currency})`,
+                    storage: 'amountReceived',
+                    type: 'text',
+                    required: true,
+                    hint,
+                  }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              const raw = String(form.$master?.$get('amountReceived') || '').trim();
+              const entered = parseFloat(raw);
+              if (!Number.isFinite(entered) || entered <= 0) {
+                Dialogs.$error('Please enter a valid amount.');
+                return;
+              }
+              if (Math.round(entered * 100) !== totalMinor) {
+                Dialogs.$error(`Amount does not match. Expected ${expectedDisplay} — please collect the correct amount before confirming.`);
+                return;
+              }
+              try {
+                await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${reservationId}/payment/collect`).create({});
+                await refreshReport(report);
+                Dialogs.$success(`${methodLabel.charAt(0).toUpperCase() + methodLabel.slice(1)} payment of ${expectedDisplay} confirmed as collected.`);
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to confirm payment.');
+              }
+            },
+          });
+        },
+      });
+
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
 function requestCustomerPickupButton(report: Report) {
   return $BN({ text: 'Ready for Pickup', color: 'primary' }, {
     onClicked: async (button) => {
@@ -635,6 +705,87 @@ function confirmDirectReturnReceiptButton(report: Report) {
   });
 }
 
+function initiatePartnerDeliveryButton(report: Report) {
+  return $BN({ text: 'Start Partner Delivery', color: 'primary' }, {
+    onClicked: async (button) => {
+      try {
+        const confirmed = await Dialogs.$confirm(
+          'Generate a delivery PIN for the customer. They will use it to confirm receipt when the item arrives.',
+          'Start Partner Delivery',
+        );
+        if (!confirmed) {
+          return;
+        }
+        await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${String(button.$master?.$get('id') || '')}/partner-delivery/initiate`).create({});
+        await refreshReport(report);
+        Dialogs.$success('Partner delivery started. Share the PIN with the customer.');
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Failed to start partner delivery.');
+      }
+    },
+  });
+}
+
+function confirmPartnerDeliveryPinButton(report: Report) {
+  return $BN({ text: 'Confirm Delivery PIN', color: 'success' }, {
+    onClicked: async (button) => {
+      const reservationId = String(button.$master?.$get('id') || '');
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Confirm Partner Delivery PIN',
+            width: 420,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({ label: 'Customer PIN', storage: 'confirmationCode', type: 'text', required: true }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              try {
+                await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${reservationId}/partner-delivery/confirm-pin`).create({
+                  confirmationCode: String(form.$master?.$get('confirmationCode') || '').trim(),
+                });
+                await refreshReport(report);
+                Dialogs.$success('Partner delivery confirmed.');
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to confirm delivery PIN.');
+              }
+            },
+          });
+        },
+      });
+
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
+function confirmPartnerCollectionReceiptButton(report: Report) {
+  return $BN({ text: 'Confirm Collection', color: 'success' }, {
+    onClicked: async (button) => {
+      const reservationId = String(button.$master?.$get('id') || '');
+      try {
+        const confirmed = await Dialogs.$confirm(
+          'Confirm that you have physically collected and received the rental item from the customer?',
+          'Confirm Collection',
+        );
+        if (!confirmed) {
+          return;
+        }
+        await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${reservationId}/partner-collection/confirm-receipt`).create({});
+        await refreshReport(report);
+        Dialogs.$success('Partner collection confirmed.');
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Failed to confirm collection.');
+      }
+    },
+  });
+}
+
 function cancelButton(report: Report, statusRef: Ref<any>) {
   return $BN({ text: 'Cancel', color: 'warning' }, {
     onClicked: async (button) => {
@@ -674,6 +825,63 @@ function failButton(report: Report, statusRef: Ref<any>) {
         }
       });
 
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
+function initiateDepositRefundHandoffButton(report: Report) {
+  return $BN({ text: 'Pay Deposit Refund', color: 'success' }, {
+    onClicked: async (button) => {
+      const reservationId = String(button.$master?.$get('id') || '');
+      try {
+        const confirmed = await Dialogs.$confirm(
+          'Generate a deposit refund PIN and notify the customer to confirm receipt?',
+          'Initiate Cash Deposit Refund',
+        );
+        if (!confirmed) return;
+        await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${reservationId}/deposit-refund/initiate`).create({});
+        await refreshReport(report);
+        Dialogs.$success('Deposit refund handoff initiated. Customer has been sent their PIN.');
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Failed to initiate deposit refund.');
+      }
+    },
+  });
+}
+
+function confirmDepositRefundPinButton(report: Report) {
+  return $BN({ text: 'Confirm with Customer PIN', color: 'primary' }, {
+    onClicked: async (button) => {
+      const reservationId = String(button.$master?.$get('id') || '');
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({ title: 'Confirm Deposit Refund with PIN', width: 420 }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({ label: 'Customer PIN', storage: 'depositRefundPin', type: 'text', required: true }),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              const pin = String(form.$master?.$get('depositRefundPin') || '').trim();
+              if (!pin) {
+                Dialogs.$error('Please enter the PIN shown on the customer\'s app.');
+                return;
+              }
+              try {
+                await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${reservationId}/deposit-refund/confirm-pin`).create({ confirmationCode: pin });
+                await refreshReport(report);
+                Dialogs.$success('Deposit refund confirmed. The deposit has been returned to the customer.');
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to confirm deposit refund PIN.');
+              }
+            },
+          });
+        },
+      });
       AppManager.showDialog(dialog);
     },
   });
@@ -1061,8 +1269,15 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
       buttons.push(downloadReceiptPdfButton());
     }
 
-    if (paymentStatus === 'paid' && statusRef.value === 'requested') {
+    const paymentMethod = String(reservation.paymentMethod || '');
+    const isDirectPayment = paymentMethod === 'cash_on_pickup' || paymentMethod === 'card_on_pickup';
+
+    if (statusRef.value === 'requested' && (paymentStatus === 'paid' || isDirectPayment)) {
       buttons.push(confirmButton(report, statusRef));
+    }
+
+    if (isDirectPayment && paymentStatus !== 'paid' && ['requested', 'confirmed'].includes(statusRef.value)) {
+      buttons.push(confirmPaymentReceivedButton(report));
     }
 
     if (
@@ -1090,6 +1305,28 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
       if (String(outbound?.pickupHandoffStatus || '').trim().toLowerCase() === 'requested') {
         buttons.push(confirmOutboundPickupPinButton(report));
       }
+    }
+
+    if (
+      paymentStatus === 'paid' &&
+      statusRef.value === 'confirmed' &&
+      String(reservation.fulfillmentMethod || '').trim().toLowerCase() === 'partner_delivery'
+    ) {
+      if (String(reservation.partnerDeliveryHandoffStatus || 'not_requested').trim().toLowerCase() === 'not_requested') {
+        buttons.push(initiatePartnerDeliveryButton(report));
+      }
+      if (String(reservation.partnerDeliveryHandoffStatus || '').trim().toLowerCase() === 'requested') {
+        buttons.push(confirmPartnerDeliveryPinButton(report));
+      }
+    }
+
+    if (
+      paymentStatus === 'paid' &&
+      statusRef.value === 'picked_up' &&
+      String(reservation.returnFulfillmentMethod || '').trim().toLowerCase() === 'partner_collection' &&
+      String(reservation.partnerCollectionHandoffStatus || '').trim().toLowerCase() === 'requested'
+    ) {
+      buttons.push(confirmPartnerCollectionReceiptButton(report));
     }
 
     if (
@@ -1129,7 +1366,23 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
       buttons.push(deductDepositButton(report));
     }
 
-    if (statusRef.value === 'returned' && heldDepositAmount > 0 && ['refund_failed', 'manual_refund_required'].includes(depositStatus)) {
+    if (statusRef.value === 'returned' && heldDepositAmount > 0 && depositStatus === 'manual_refund_required') {
+      if (depositCollectionMethod === 'cash') {
+        const depositRefunds = Array.isArray(report.$master?.$get('depositRefunds')) ? report.$master.$get('depositRefunds') as any[] : [];
+        const activeRefund = depositRefunds.find((r: any) => r.status === 'manual_refund_required' && r.refundMode === 'cash_manual') || depositRefunds[0] || null;
+        const handoffStatus = String(activeRefund?.handoffStatus || 'not_initiated').trim().toLowerCase();
+        if (handoffStatus === 'not_initiated') {
+          buttons.push(initiateDepositRefundHandoffButton(report));
+        } else if (handoffStatus === 'pending') {
+          buttons.push(confirmDepositRefundPinButton(report));
+        }
+      } else {
+        buttons.push(manualRefundDepositButton(report));
+        buttons.push(refundDepositButton(report));
+      }
+    }
+
+    if (statusRef.value === 'returned' && heldDepositAmount > 0 && depositStatus === 'refund_failed') {
       buttons.push(manualRefundDepositButton(report));
       buttons.push(refundDepositButton(report));
     }
