@@ -70,6 +70,40 @@ async function markProcessed(id: string) {
   }
 }
 
+async function initiateHandoff(id: string) {
+  const rentalProviderId = useAppStore().rentalProvider?.id
+  if (!rentalProviderId) {
+    Dialogs.$error('No active rental provider selected.')
+    return false
+  }
+  try {
+    await Api.instance.service(`rental-providers/${rentalProviderId}/cancellation-refunds/${id}/initiate-handoff`).create({})
+    Dialogs.$success('Refund handoff initiated. Ask the customer to show their PIN.')
+    return true
+  } catch (error: any) {
+    Dialogs.$error(error.message || 'Failed to initiate refund handoff.')
+    return false
+  }
+}
+
+async function confirmPin(id: string) {
+  const rentalProviderId = useAppStore().rentalProvider?.id
+  if (!rentalProviderId) {
+    Dialogs.$error('No active rental provider selected.')
+    return false
+  }
+  const pin = await Dialogs.$prompt('Enter Customer PIN', 'Ask the customer to show the PIN from their app and enter it below.')
+  if (!pin) return false
+  try {
+    await Api.instance.service(`rental-providers/${rentalProviderId}/cancellation-refunds/${id}/confirm-pin`).create({ pin })
+    Dialogs.$success('Refund confirmed successfully.')
+    return true
+  } catch (error: any) {
+    Dialogs.$error(error.message || 'Invalid PIN or refund confirmation failed.')
+    return false
+  }
+}
+
 function renderDetails(item: any) {
   const cards = [
     ['Source Type', label(item?.sourceType)],
@@ -85,6 +119,17 @@ function renderDetails(item: any) {
     ['Created', dateTime(item?.createdAt)],
   ]
 
+  const handoffSection = item?.refundType === 'partner_direct_refund' && item?.handoffStatus && item?.handoffStatus !== 'not_initiated'
+    ? `<div style="margin-top:14px; padding:14px; background:#f0f7ff; border:1px solid #b8d4f0; border-radius:14px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#61768b; margin-bottom:8px;">Refund Handoff</div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+          <div>${chip(label(item.handoffStatus), item.handoffStatus === 'confirmed' ? '#17663c' : '#7c3aed')}</div>
+          ${item.handoffStatus === 'pending' ? `<div style="font-size:1.6rem; font-weight:700; letter-spacing:.15em; color:#1a5cb8;">${escapeHtml(item.handoffCode || '')}</div><div style="font-size:13px; color:#61768b;">Customer PIN — enter this after handing over the cash</div>` : ''}
+          ${item.handoffConfirmedAt ? `<div style="font-size:13px; color:#61768b;">Confirmed: ${dateTime(item.handoffConfirmedAt)}</div>` : ''}
+        </div>
+      </div>`
+    : ''
+
   return `
     <div style="font-family:inherit; color:#10263b; background:#f7fbff; border:1px solid #d9e5f0; border-radius:18px; padding:18px;">
       <div style="margin-bottom:16px;">
@@ -99,6 +144,7 @@ function renderDetails(item: any) {
           </div>
         `).join('')}
       </div>
+      ${handoffSection}
       ${item?.failureReason ? `<div style="margin-top:14px; padding:14px; background:#fff2f2; border:1px solid #f8c0c0; border-radius:14px; color:#9f2d2d;"><strong>Failure Reason:</strong> ${escapeHtml(item.failureReason)}</div>` : ''}
       ${item?.notes ? `<div style="margin-top:14px; padding:14px; background:#fff; border:1px solid #dbe6ef; border-radius:14px;"><strong>Notes:</strong> ${escapeHtml(item.notes)}</div>` : ''}
     </div>
@@ -122,6 +168,11 @@ const trigger = () => $TG({
     'processedAt',
     'failureReason',
     'notes',
+    'handoffStatus',
+    'handoffCode',
+    'handoffMethod',
+    'handoffInitiatedAt',
+    'handoffConfirmedAt',
     'createdAt',
     'updatedAt',
   ],
@@ -158,18 +209,44 @@ const report = () => {
     }),
     sideButtons: (_props, _context, rp) => {
       const item = rp?.$master?.$data || {}
-      if (
-        item.refundType !== 'partner_direct_refund' ||
-        !['pending', 'partner_action_required'].includes(item.status)
-      ) return []
-      return [
-        $BN({ text: 'Mark Processed', icon: 'mdi-check-circle-outline', color: 'success' }, {
-          async onClicked() {
-            const ok = await markProcessed(item.id)
-            if (ok) rp?.$master?.$set('status', 'processed')
-          },
-        }),
-      ]
+      if (item.refundType !== 'partner_direct_refund') return []
+      if (!['pending', 'partner_action_required'].includes(item.status)) return []
+
+      const buttons = []
+
+      if (item.handoffStatus === 'not_initiated') {
+        buttons.push(
+          $BN({ text: 'Pay Refund & Get Confirmation', icon: 'mdi-cash-check', color: 'primary' }, {
+            async onClicked() {
+              const ok = await initiateHandoff(item.id)
+              if (ok) {
+                rp?.$master?.$set('handoffStatus', 'pending')
+                rp?.$master?.refresh?.()
+              }
+            },
+          }),
+          $BN({ text: 'Mark Processed (No PIN)', icon: 'mdi-check-circle-outline', color: 'success' }, {
+            async onClicked() {
+              const ok = await markProcessed(item.id)
+              if (ok) rp?.$master?.$set('status', 'processed')
+            },
+          }),
+        )
+      } else if (item.handoffStatus === 'pending') {
+        buttons.push(
+          $BN({ text: 'Confirm with Customer PIN', icon: 'mdi-shield-key-outline', color: 'success' }, {
+            async onClicked() {
+              const ok = await confirmPin(item.id)
+              if (ok) {
+                rp?.$master?.$set('status', 'processed')
+                rp?.$master?.$set('handoffStatus', 'confirmed')
+              }
+            },
+          }),
+        )
+      }
+
+      return buttons
     },
     access: rentalAccess('rental.finance.view'),
   })
