@@ -1,4 +1,5 @@
 import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, AppManager, Button, DialogForm, Dialogs, Master, Report, SimpleDate } from 'vuetify-extended';
+import { uploadAsset } from '@bookmame/web-utils';
 import { ref, Ref } from 'vue';
 import { rentalAccess } from '../../misc/access';
 import { useAppStore } from '../../store/app';
@@ -177,6 +178,7 @@ function renderReservationHtml(reservation: any) {
   const deliveryTasks = Array.isArray(reservation?.deliveryTasks) ? reservation.deliveryTasks : [];
   const ledgerLines = Array.isArray(reservation?.ledgerLines) ? reservation.ledgerLines : [];
   const depositRefunds = Array.isArray(reservation?.depositRefunds) ? reservation.depositRefunds : [];
+  const updates = Array.isArray(reservation?.updates) ? reservation.updates : [];
   const itemName = reservation?.itemNameSnapshot || reservation?.rentalInventoryItem?.name || 'Inventory item';
   const variantName = reservation?.variantNameSnapshot || reservation?.rentalInventoryVariant?.name || '';
   const categoryLabel = reservation?.itemCategoryLabelSnapshot || reservation?.rentalInventoryItem?.categoryLabel || '';
@@ -248,7 +250,7 @@ function renderReservationHtml(reservation: any) {
           <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:8px;">Fulfilment</div>
           <div style="font-weight:700;">${escapeHtml(String(reservation?.fulfillmentMethod || 'customer_pickup').replace(/_/g, ' '))}</div>
           ${reservation?.deliveryCompany?.name ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Outbound: ${escapeHtml(reservation.deliveryCompany.name)}</div>` : ''}
-          ${reservation?.fulfillmentMethod === 'customer_pickup' ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Customer pickup handoff: ${escapeHtml(String(reservation?.customerPickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}${reservation?.customerPickupHandoffCode && String(reservation?.customerPickupHandoffStatus || '') === 'requested' ? ` · PIN ${escapeHtml(reservation.customerPickupHandoffCode)}` : ''}</div>` : ''}
+          ${reservation?.fulfillmentMethod === 'customer_pickup' ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Customer pickup handoff: ${escapeHtml(String(reservation?.customerPickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}</div>` : ''}
           ${reservation?.fulfillmentMethod === 'partner_delivery' ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Partner delivery handoff: ${escapeHtml(String(reservation?.partnerDeliveryHandoffStatus || 'not_requested').replace(/_/g, ' '))}</div>` : ''}
           <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Return: ${escapeHtml(String(reservation?.returnFulfillmentMethod || 'return_by_customer').replace(/_/g, ' '))}</div>
           ${reservation?.returnDeliveryCompany?.name ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Return partner: ${escapeHtml(reservation.returnDeliveryCompany.name)}</div>` : ''}
@@ -277,6 +279,24 @@ function renderReservationHtml(reservation: any) {
           <div style="color:rgba(var(--v-theme-on-surface),0.7); white-space:pre-wrap;">${escapeHtml(reservation.notes)}</div>
         </div>
       ` : ''}
+
+      <div style="padding:14px; background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; margin-bottom:18px;">
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.55); margin-bottom:10px;">Provider / Customer Notes</div>
+        ${updates.length ? `
+          <div style="display:grid; gap:10px;">
+            ${updates.map((update: any) => `
+              <div style="border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:12px; padding:12px;">
+                <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline;">
+                  <div style="font-weight:700;">${escapeHtml(update?.authorType === 'customer' ? 'Customer' : update?.authorLabel || String(update?.authorType || 'update').replace(/_/g, ' '))}</div>
+                  <div style="color:rgba(var(--v-theme-on-surface),0.55); font-size:12px;">${escapeHtml(dateTime(update?.createdAt))}</div>
+                </div>
+                <div style="margin-top:8px; color:rgba(var(--v-theme-on-surface),0.7); white-space:pre-wrap;">${escapeHtml(update?.note || update?.message || '')}</div>
+                ${Array.isArray(update?.imageAssetIds) && update.imageAssetIds.length ? `<div style="margin-top:8px; color:rgba(var(--v-theme-on-surface),0.55); font-size:12px;">${escapeHtml(update.imageAssetIds.length)} image attachment(s)</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : '<div style="color:rgba(var(--v-theme-on-surface),0.7);">No provider/customer updates yet.</div>'}
+      </div>
 
       ${(reservation?.securityDepositResolutionReason || reservation?.securityDepositRefundReference || reservation?.securityDepositResolvedAt) ? `
         <div style="padding:14px; background:rgba(var(--v-theme-on-surface),0.03); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:14px; margin-bottom:18px;">
@@ -416,7 +436,26 @@ function reasonDialog(title: string, label: string, onSubmit: (reason: string) =
   return dialog;
 }
 
-function notesDialog(title: string, initialNotes: string, onSubmit: (notes: string) => Promise<void>) {
+async function uploadImageAssetIds(form: any, imageField: string, purpose: string, entityId: string) {
+  const rawValue = form?.$master?.$get?.(imageField);
+  const images = Array.isArray(rawValue) ? rawValue : rawValue ? [rawValue] : [];
+  const assetIds: string[] = [];
+
+  for (const image of images) {
+    const uploaded = await uploadAsset(image, {
+      purpose,
+      isPublic: false,
+      entityType: 'rental_reservation',
+      entityId,
+    });
+    assetIds.push(uploaded.id);
+  }
+
+  form?.$master?.$set?.(imageField, null);
+  return assetIds;
+}
+
+function notesDialog(title: string, initialNotes: string, entityId: string, onSubmit: (notes: string, imageAssetIds: string[]) => Promise<void>) {
   const dialog = new DialogForm({}, {
     form() {
       return $FM({
@@ -434,13 +473,21 @@ function notesDialog(title: string, initialNotes: string, onSubmit: (notes: stri
                 cols: 12,
                 hint: initialNotes
                   ? `Current notes: ${initialNotes}`
-                  : 'Internal operational notes for this reservation.',
+                  : 'Share a provider/customer update for this reservation.',
+              }),
+              $FD({
+                label: 'Images',
+                storage: 'images',
+                type: 'image',
+                multiple: true,
+                cols: 12,
               }),
             ],
           }),
         ],
         saved: async (form) => {
-          await onSubmit(String(form.$master?.$get('notes') || '').trim());
+          const imageAssetIds = await uploadImageAssetIds(form, 'images', 'rental-reservation-update-image', entityId);
+          await onSubmit(String(form.$master?.$get('notes') || '').trim(), imageAssetIds);
           dialog.forceCancel();
         },
       });
@@ -1086,18 +1133,24 @@ function deductDepositButton(report: Report) {
 }
 
 function updateNotesButton(report: Report) {
-  return $BN({ text: 'Update Notes', color: 'info' }, {
+  return $BN({ text: 'Add Update', color: 'info' }, {
     onClicked: async (button) => {
+      const reservationId = String(button.$master?.$get('id') || '');
       const dialog = notesDialog(
-        'Update Reservation Notes',
+        'Add Reservation Update',
         String(button.$master?.$get('notes') || ''),
-        async (notes) => {
+        reservationId,
+        async (notes, imageAssetIds) => {
           try {
-            await patchReservation(String(button.$master?.$get('id') || ''), { notes });
+            if (!notes) throw new Error('Update note is required.');
+            await Api.instance.service(`rental-providers/${getRentalProviderId()}/reservations/${reservationId}/updates`).create({
+              message: notes,
+              imageAssetIds,
+            });
             await refreshReport(report);
-            Dialogs.$success('Reservation notes updated.');
+            Dialogs.$success('Reservation update added.');
           } catch (error: any) {
-            Dialogs.$error(error?.message || 'Failed to update notes.');
+            Dialogs.$error(error?.message || 'Failed to add update.');
           }
         },
       );
