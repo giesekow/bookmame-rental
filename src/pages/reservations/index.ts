@@ -752,6 +752,64 @@ function confirmDirectReturnReceiptButton(report: Report) {
   });
 }
 
+async function findActiveFailedDeliveryReturnTask(reservationId: string) {
+  const tasks: any[] = await Api.instance.service('failed-delivery-tasks').find({
+    query: {
+      sourceType: 'rental_reservation',
+      sourceId: reservationId,
+      $paginate: false,
+    },
+  });
+  return tasks?.find((task: any) => task.taskType === 'return_to_partner' && task.confirmationStatus !== 'confirmed') ?? null;
+}
+
+function confirmFailedDeliveryReturnPinButton(report: Report) {
+  return $BN({ text: 'Confirm Failed-Delivery Return PIN', color: 'warning' }, {
+    onClicked: async (button) => {
+      const reservationId = String(button.$master?.$get('id') || '');
+      const task = await findActiveFailedDeliveryReturnTask(reservationId);
+      if (!task?.id) {
+        Dialogs.$error('No active failed-delivery return task was found for this reservation.');
+        return;
+      }
+      const dialog = new DialogForm({}, {
+        form() {
+          return $FM({
+            title: 'Confirm Return PIN',
+            width: 420,
+          }, {
+            children: () => [
+              $PT({}, {
+                children: () => [
+                  $FD({
+                    label: 'Return Confirmation PIN',
+                    storage: 'confirmationCode',
+                    type: 'text',
+                    required: true,
+                    hint: 'Enter the PIN shown in the rider app.',
+                  }, {}),
+                ],
+              }),
+            ],
+            saved: async (form) => {
+              try {
+                const pin = String(form.$master?.$get('confirmationCode') || '').trim();
+                await Api.instance.service(`failed-delivery-tasks/${task.id}/confirm-return`).create({ handoffCode: pin });
+                await refreshReport(report);
+                Dialogs.$success('Failed-delivery return has been confirmed.');
+                dialog.forceCancel();
+              } catch (error: any) {
+                Dialogs.$error(error?.message || 'Failed to confirm return PIN.');
+              }
+            },
+          });
+        },
+      });
+      AppManager.showDialog(dialog);
+    },
+  });
+}
+
 function initiatePartnerDeliveryButton(report: Report) {
   return $BN({ text: 'Start Partner Delivery', color: 'primary' }, {
     onClicked: async (button) => {
@@ -1398,6 +1456,10 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
       String(inboundReturn?.deliveryConfirmationStatus || '').trim().toLowerCase() === 'requested'
     ) {
       buttons.push(confirmReturnedItemButton(report));
+    }
+
+    if (String(statusRef.value || '').trim().toLowerCase() === 'return_in_progress') {
+      buttons.push(confirmFailedDeliveryReturnPinButton(report));
     }
 
     const requiredDepositAmount = Number(report.$master?.$get('securityDepositAmount') || 0);

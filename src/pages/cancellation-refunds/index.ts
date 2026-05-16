@@ -46,6 +46,7 @@ function statusColor(value: string) {
   if (value === 'processing') return '#1a5cb8'
   if (value === 'pending') return '#8a5a12'
   if (value === 'partner_action_required') return '#7c3aed'
+  if (value === 'pending_channel_choice') return '#b45309'
   if (value === 'failed') return '#9f2d2d'
   return '#274056'
 }
@@ -116,10 +117,16 @@ function renderDetails(item: any) {
     ['Partner Remittance Required', item?.partnerRemittanceRequired ? 'Yes' : 'No'],
     ['Status', label(item?.status)],
     ['Processed At', dateTime(item?.processedAt)],
+    ['Refund Channel', label(item?.refundChannel)],
+    ['Channel Chosen By', label(item?.refundChannelChosenBy)],
+    ['Channel Chosen At', dateTime(item?.refundChannelChosenAt)],
+    ['Voucher Issued At', dateTime(item?.voucherIssuedAt)],
     ['Created', dateTime(item?.createdAt)],
   ]
 
-  const handoffSection = item?.refundType === 'partner_direct_refund' && item?.handoffStatus && item?.handoffStatus !== 'not_initiated'
+  const isGiftVoucher = item?.refundChannel === 'gift_voucher'
+
+  const handoffSection = !isGiftVoucher && item?.refundType === 'partner_direct_refund' && item?.handoffStatus && item?.handoffStatus !== 'not_initiated'
     ? `<div style="margin-top:14px; padding:14px; background:#f0f7ff; border:1px solid #b8d4f0; border-radius:14px;">
         <div style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#61768b; margin-bottom:8px;">Refund Handoff</div>
         <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
@@ -127,6 +134,12 @@ function renderDetails(item: any) {
           ${item.handoffStatus === 'pending' ? `<div style="font-size:1.6rem; font-weight:700; letter-spacing:.15em; color:#1a5cb8;">${escapeHtml(item.handoffCode || '')}</div><div style="font-size:13px; color:#61768b;">Customer PIN — enter this after handing over the cash</div>` : ''}
           ${item.handoffConfirmedAt ? `<div style="font-size:13px; color:#61768b;">Confirmed: ${dateTime(item.handoffConfirmedAt)}</div>` : ''}
         </div>
+      </div>`
+    : ''
+
+  const remittanceNotice = isGiftVoucher
+    ? `<div style="margin-top:14px; padding:14px; background:#f0fff4; border:1px solid #6ee7b7; border-radius:14px; color:#065f46;">
+        <strong>Gift voucher issued to customer.</strong><br/>The platform has issued a gift voucher on your behalf. You owe the platform <strong>${escapeHtml(money(item?.refundAmount, item?.currency))}</strong> as remittance. Please contact us to arrange payment.
       </div>`
     : ''
 
@@ -145,6 +158,13 @@ function renderDetails(item: any) {
         `).join('')}
       </div>
       ${handoffSection}
+      ${remittanceNotice}
+      ${item?.voucherId ? `<div style="margin-top:14px; padding:14px; background:#f0fff4; border:1px solid #6ee7b7; border-radius:14px; color:#065f46;">
+        <strong>Gift Voucher Issued</strong><br/>
+        ${item?.issuedVoucher?.code ? `<span style="font-size:1.4rem; font-weight:700; letter-spacing:.15em; color:#065f46;">${escapeHtml(item.issuedVoucher.code)}</span><br/>` : `<span style="opacity:.72;">ID: ${escapeHtml(item.voucherId)}</span><br/>`}
+        ${item?.issuedVoucher?.initialAmount != null ? `<span style="opacity:.72;">Amount: ${escapeHtml(money(item.issuedVoucher.initialAmount, item.issuedVoucher.currency || item.currency))}</span><br/>` : ''}
+        ${item?.voucherIssuedAt ? `<span style="opacity:.72;">Issued: ${escapeHtml(dateTime(item.voucherIssuedAt))}</span>` : ''}
+      </div>` : ''}
       ${item?.failureReason ? `<div style="margin-top:14px; padding:14px; background:#fff2f2; border:1px solid #f8c0c0; border-radius:14px; color:#9f2d2d;"><strong>Failure Reason:</strong> ${escapeHtml(item.failureReason)}</div>` : ''}
       ${item?.notes ? `<div style="margin-top:14px; padding:14px; background:#fff; border:1px solid #dbe6ef; border-radius:14px;"><strong>Notes:</strong> ${escapeHtml(item.notes)}</div>` : ''}
     </div>
@@ -173,6 +193,11 @@ const trigger = () => $TG({
     'handoffMethod',
     'handoffInitiatedAt',
     'handoffConfirmedAt',
+    'refundChannel',
+    'refundChannelChosenAt',
+    'refundChannelChosenBy',
+    'voucherId',
+    'voucherIssuedAt',
     'createdAt',
     'updatedAt',
   ],
@@ -211,6 +236,7 @@ const report = () => {
       const item = rp?.$master?.$data || {}
       if (item.refundType !== 'partner_direct_refund') return []
       if (!['pending', 'partner_action_required'].includes(item.status)) return []
+      if (item.refundChannel === 'gift_voucher') return []
 
       const buttons = []
 

@@ -7,6 +7,7 @@ import { rentalInventoryCollection, rentalInventoryMenu } from '../pages/invento
 import { rentalInventoryCalendarSelector } from '../pages/inventory-calendar';
 import { openInventoryCatalogDialog } from '../misc/inventory-catalog';
 import { rentalNotificationPreferencesReport } from '../pages/notification-preferences';
+import { rentalDeliverySettingsReport } from '../pages/delivery-settings';
 import { rentalProfileReport } from '../pages/profile';
 import { rentalRatingsCollection } from '../pages/ratings';
 import { rentalReservationsCollection } from '../pages/reservations';
@@ -235,6 +236,17 @@ const buildSettingsMenu = () => new Menu(
       }, {
         menu: rentalDeliveryPartnersMenu,
         access: rentalAccess('rental.delivery_partners.manage'),
+      }),
+      $MI({
+        text: 'Delivery Settings',
+        icon: 'mdi-truck-check-outline',
+        shortcut: 'V',
+        action: 'report',
+        mode: 'display',
+        color: 'primary',
+      }, {
+        report: rentalDeliverySettingsReport,
+        access: rentalAccess('rental.profile.view'),
       }),
       $MI({
         text: 'Notifications',
