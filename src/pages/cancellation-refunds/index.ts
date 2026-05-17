@@ -93,7 +93,7 @@ async function confirmPin(id: string) {
     Dialogs.$error('No active rental provider selected.')
     return false
   }
-  const pin = await Dialogs.$prompt('Enter Customer PIN', 'Ask the customer to show the PIN from their app and enter it below.')
+  const pin = await Dialogs.$prompt({ fieldParams: { label: 'Enter Customer PIN' }, title: 'Ask the customer to show the PIN from their app and enter it below.' })
   if (!pin) return false
   try {
     await Api.instance.service(`rental-providers/${rentalProviderId}/cancellation-refunds/${id}/confirm-pin`).create({ pin })
@@ -120,7 +120,6 @@ function renderDetails(item: any) {
     ['Refund Channel', label(item?.refundChannel)],
     ['Channel Chosen By', label(item?.refundChannelChosenBy)],
     ['Channel Chosen At', dateTime(item?.refundChannelChosenAt)],
-    ['Voucher Issued At', dateTime(item?.voucherIssuedAt)],
     ['Created', dateTime(item?.createdAt)],
   ]
 
@@ -139,7 +138,10 @@ function renderDetails(item: any) {
 
   const remittanceNotice = isGiftVoucher
     ? `<div style="margin-top:14px; padding:14px; background:#f0fff4; border:1px solid #6ee7b7; border-radius:14px; color:#065f46;">
-        <strong>Gift voucher issued to customer.</strong><br/>The platform has issued a gift voucher on your behalf. You owe the platform <strong>${escapeHtml(money(item?.refundAmount, item?.currency))}</strong> as remittance. Please contact us to arrange payment.
+        ${item?.partnerRemittanceRequired && ['processed', 'processing'].includes(String(item?.status || '').toLowerCase())
+          ? `<strong>Gift voucher issued to customer.</strong><br/>The platform has issued a gift voucher on your behalf. You owe the platform <strong>${escapeHtml(money(item?.refundAmount, item?.currency))}</strong> as remittance. Please contact us to arrange payment.`
+          : `<strong>Gift voucher issued to customer.</strong><br/>The platform has issued a gift voucher for this cancellation refund.`
+        }
       </div>`
     : ''
 
@@ -159,12 +161,6 @@ function renderDetails(item: any) {
       </div>
       ${handoffSection}
       ${remittanceNotice}
-      ${item?.voucherId ? `<div style="margin-top:14px; padding:14px; background:#f0fff4; border:1px solid #6ee7b7; border-radius:14px; color:#065f46;">
-        <strong>Gift Voucher Issued</strong><br/>
-        ${item?.issuedVoucher?.code ? `<span style="font-size:1.4rem; font-weight:700; letter-spacing:.15em; color:#065f46;">${escapeHtml(item.issuedVoucher.code)}</span><br/>` : `<span style="opacity:.72;">ID: ${escapeHtml(item.voucherId)}</span><br/>`}
-        ${item?.issuedVoucher?.initialAmount != null ? `<span style="opacity:.72;">Amount: ${escapeHtml(money(item.issuedVoucher.initialAmount, item.issuedVoucher.currency || item.currency))}</span><br/>` : ''}
-        ${item?.voucherIssuedAt ? `<span style="opacity:.72;">Issued: ${escapeHtml(dateTime(item.voucherIssuedAt))}</span>` : ''}
-      </div>` : ''}
       ${item?.failureReason ? `<div style="margin-top:14px; padding:14px; background:#fff2f2; border:1px solid #f8c0c0; border-radius:14px; color:#9f2d2d;"><strong>Failure Reason:</strong> ${escapeHtml(item.failureReason)}</div>` : ''}
       ${item?.notes ? `<div style="margin-top:14px; padding:14px; background:#fff; border:1px solid #dbe6ef; border-radius:14px;"><strong>Notes:</strong> ${escapeHtml(item.notes)}</div>` : ''}
     </div>
@@ -247,7 +243,7 @@ const report = () => {
               const ok = await initiateHandoff(item.id)
               if (ok) {
                 rp?.$master?.$set('handoffStatus', 'pending')
-                rp?.$master?.refresh?.()
+                rp?.forceRender()
               }
             },
           }),
