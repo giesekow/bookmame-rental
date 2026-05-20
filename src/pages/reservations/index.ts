@@ -335,7 +335,7 @@ function renderReservationHtml(reservation: any) {
           <div style="display:grid; gap:10px;">
             ${deliveryTasks.map((task: any) => `
               <div style="border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:12px; padding:12px;">
-                <div style="font-weight:700;">${escapeHtml(String(task.direction || '').replace(/_/g, ' '))} · ${escapeHtml(String(task.status || '').replace(/_/g, ' '))}</div>
+                <div style="font-weight:700;">${escapeHtml(String(task.taskType || task.direction || '').replace(/_/g, ' '))} · ${escapeHtml(String(task.status || '').replace(/_/g, ' '))}</div>
                 <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">${escapeHtml(task?.deliveryCompany?.name || 'Delivery partner')} · ${escapeHtml(money(task?.feeAmount, task?.currency || reservation?.currency))}</div>
                 ${task?.pickupHandoffStatus ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Pickup handoff: ${escapeHtml(String(task.pickupHandoffStatus || 'not_requested').replace(/_/g, ' '))}${task?.pickupHandoffCode && String(task.pickupHandoffStatus || '') === 'requested' ? ` · Rider PIN ${escapeHtml(task.pickupHandoffCode)}` : ''}</div>` : ''}
                 ${task?.deliveryConfirmationStatus ? `<div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.7);">Delivery confirmation: ${escapeHtml(String(task.deliveryConfirmationStatus || 'not_requested').replace(/_/g, ' '))}${task?.deliveryConfirmationCode && String(task.deliveryConfirmationStatus || '') === 'requested' ? ` · PIN ${escapeHtml(task.deliveryConfirmationCode)}` : ''}</div>` : ''}
@@ -396,13 +396,13 @@ async function patchReservation(reservationId: string, data: Record<string, unkn
 
 function outboundTask(reservation: any) {
   return (Array.isArray(reservation?.deliveryTasks) ? reservation.deliveryTasks : []).find((task: any) =>
-    String(task?.direction || '').trim().toLowerCase() === 'outbound',
+    ['outbound', 'retry_delivery'].includes(String(task?.taskType || task?.direction || '').trim().toLowerCase()),
   ) || null;
 }
 
 function returnTask(reservation: any) {
   return (Array.isArray(reservation?.deliveryTasks) ? reservation.deliveryTasks : []).find((task: any) =>
-    String(task?.direction || '').trim().toLowerCase() === 'return',
+    ['return', 'return_to_partner'].includes(String(task?.taskType || task?.direction || '').trim().toLowerCase()),
   ) || null;
 }
 

@@ -179,7 +179,7 @@ function ratingValue(value?: number | null) {
 }
 
 function openReservationsCollection() {
-  AppManager.showCollection(rentalReservationsCollection());
+  AppManager.showCollection(rentalReservationsCollection()());
 }
 
 async function loadReservationsDueTodayCount() {
@@ -205,7 +205,7 @@ function openReservationsDueTodayCollection() {
   AppManager.showCollection(rentalReservationsCollection({
     dueDateFrom: today,
     dueDateTo: today,
-  }));
+  })());
 }
 
 function openReservation(reservationId?: string) {
