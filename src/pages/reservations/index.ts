@@ -406,6 +406,23 @@ function returnTask(reservation: any) {
   ) || null;
 }
 
+function hasPendingReturnConfirmationFromReservation(reservation: any) {
+  const tasks = Array.isArray(reservation?.deliveryTasks) ? reservation.deliveryTasks : [];
+  return tasks.some((task: any) => {
+    const taskType = String(task?.taskType || task?.direction || '').trim().toLowerCase();
+    if (!['return', 'return_to_partner'].includes(taskType)) {
+      return false;
+    }
+    const status = String(task?.status || '').trim().toLowerCase();
+    if (['completed', 'cancelled'].includes(status)) {
+      return false;
+    }
+    const confirmationStatus = String(task?.deliveryConfirmationStatus || task?.confirmationStatus || '').trim().toLowerCase();
+    const code = String(task?.deliveryConfirmationCode || task?.confirmationCode || '').trim();
+    return confirmationStatus === 'requested' && code.length > 0;
+  });
+}
+
 function reasonDialog(title: string, label: string, onSubmit: (reason: string) => Promise<void>) {
   const dialog = new DialogForm({}, {
     form() {
@@ -760,11 +777,31 @@ async function findActiveFailedDeliveryReturnTask(reservationId: string) {
       $paginate: false,
     },
   });
-  return tasks?.find((task: any) => task.taskType === 'return_to_partner' && task.confirmationStatus !== 'confirmed') ?? null;
+  const terminalTaskStatuses = new Set(['completed', 'cancelled', 'failed']);
+  const candidates = (Array.isArray(tasks) ? tasks : [])
+    .filter((task: any) => ['return_to_partner', 'return'].includes(String(task?.taskType || '').trim().toLowerCase()))
+    .filter((task: any) => !terminalTaskStatuses.has(String(task?.status || '').trim().toLowerCase()))
+    .sort((a: any, b: any) => {
+      const seqA = Number(a?.taskSequence || 0);
+      const seqB = Number(b?.taskSequence || 0);
+      if (seqA !== seqB) {
+        return seqB - seqA;
+      }
+      const updatedA = new Date(String(a?.updatedAt || a?.createdAt || 0)).getTime();
+      const updatedB = new Date(String(b?.updatedAt || b?.createdAt || 0)).getTime();
+      return updatedB - updatedA;
+    });
+
+  return candidates.find((task: any) => {
+    const confirmationStatus = String(task?.deliveryConfirmationStatus || '')
+      .trim()
+      .toLowerCase();
+    return confirmationStatus !== 'confirmed';
+  }) ?? null;
 }
 
-function confirmFailedDeliveryReturnPinButton(report: Report) {
-  return $BN({ text: 'Confirm Failed-Delivery Return PIN', color: 'warning' }, {
+function confirmFailedDeliveryReturnButton(report: Report) {
+  return $BN({ text: 'Confirm Return', color: 'success', icon: 'mdi-package-check' }, {
     onClicked: async (button) => {
       const reservationId = String(button.$master?.$get('id') || '');
       const task = await findActiveFailedDeliveryReturnTask(reservationId);
@@ -772,40 +809,29 @@ function confirmFailedDeliveryReturnPinButton(report: Report) {
         Dialogs.$error('No active failed-delivery return task was found for this reservation.');
         return;
       }
-      const dialog = new DialogForm({}, {
-        form() {
-          return $FM({
-            title: 'Confirm Return PIN',
-            width: 420,
-          }, {
-            children: () => [
-              $PT({}, {
-                children: () => [
-                  $FD({
-                    label: 'Return Confirmation PIN',
-                    storage: 'confirmationCode',
-                    type: 'text',
-                    required: true,
-                    hint: 'Enter the PIN shown in the rider app.',
-                  }, {}),
-                ],
-              }),
-            ],
-            saved: async (form) => {
-              try {
-                const pin = String(form.$master?.$get('confirmationCode') || '').trim();
-                await Api.instance.service(`failed-delivery-tasks/${task.id}/confirm-return`).create({ handoffCode: pin });
-                await refreshReport(report);
-                Dialogs.$success('Failed-delivery return has been confirmed.');
-                dialog.forceCancel();
-              } catch (error: any) {
-                Dialogs.$error(error?.message || 'Failed to confirm return PIN.');
-              }
-            },
-          });
-        },
-      });
-      AppManager.showDialog(dialog);
+
+      const confirmationStatus = String(task?.deliveryConfirmationStatus || '').trim().toLowerCase();
+      const pin = String(task?.deliveryConfirmationCode || '').trim();
+      if (confirmationStatus !== 'requested' || !pin) {
+        Dialogs.$error('No pending return confirmation PIN is available for this task.');
+        return;
+      }
+
+      const confirmed = await Dialogs.$confirm(
+        'Confirm return from rider now? The PIN will be applied automatically.',
+        'Confirm Return',
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        await Api.instance.service(`failed-delivery-tasks/${task.id}/confirm-return`).create({ handoffCode: pin });
+        await refreshReport(report);
+        Dialogs.$success('Failed-delivery return has been confirmed.');
+      } catch (error: any) {
+        Dialogs.$error(error?.message || 'Failed to confirm return.');
+      }
     },
   });
 }
@@ -1458,8 +1484,9 @@ export const rentalReservationsReport = (reservationId?: string) => () => $RP({
       buttons.push(confirmReturnedItemButton(report));
     }
 
-    if (String(statusRef.value || '').trim().toLowerCase() === 'return_in_progress') {
-      buttons.push(confirmFailedDeliveryReturnPinButton(report));
+    const hasPendingReturnConfirmation = hasPendingReturnConfirmationFromReservation(reservation);
+    if (hasPendingReturnConfirmation || String(statusRef.value || '').trim().toLowerCase() === 'return_in_progress') {
+      buttons.push(confirmFailedDeliveryReturnButton(report));
     }
 
     const requiredDepositAmount = Number(report.$master?.$get('securityDepositAmount') || 0);
