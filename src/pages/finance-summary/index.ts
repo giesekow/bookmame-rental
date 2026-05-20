@@ -149,14 +149,14 @@ function renderSummary(summary: any, pagination: ReturnType<typeof buildPaginati
   ]
 
   return `
-    <div style="font-family:inherit; color:#241a14; background:#fffaf5; border:1px solid #eadfd4; border-radius:16px; padding:16px;">
+    <div style="font-family:inherit; color:rgba(var(--v-theme-on-surface),0.94); background:rgba(var(--v-theme-surface),0.82); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:16px; padding:16px;">
       <div style="margin-bottom:14px;">
-        <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768;">Rental finance summary</div>
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.68);">Rental finance summary</div>
       </div>
       <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px;">
         ${cards.map(([name, value]) => {
           const tone = summaryCardStyle(String(name))
-          return `<div style="background:${tone.background}; border:1px solid ${tone.border}; border-radius:12px; padding:12px;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#8a7768; margin-bottom:6px;">${escapeHtml(name)}</div><div style="font-size:16px; font-weight:800; color:${tone.text};">${escapeHtml(value)}</div></div>`
+          return `<div style="background:${tone.background}; border:1px solid ${tone.border}; border-radius:12px; padding:12px;"><div style="font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.72); margin-bottom:6px;">${escapeHtml(name)}</div><div style="font-size:16px; font-weight:800; color:${tone.text};">${escapeHtml(value)}</div></div>`
         }).join('')}
       </div>
     </div>
@@ -165,22 +165,22 @@ function renderSummary(summary: any, pagination: ReturnType<typeof buildPaginati
 
 function renderLines(summary: any, pagination: ReturnType<typeof buildPaginationState>) {
   if (pagination.totalItems === 0) {
-    return '<div style="padding:16px; border:1px solid #e5ddcf; border-radius:12px; background:#fff; color:#7a6a5c;">No reservation finance lines were found.</div>'
+    return '<div style="padding:16px; border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:12px; background:rgba(var(--v-theme-surface),0.82); color:rgba(var(--v-theme-on-surface),0.72);">No reservation finance lines were found.</div>'
   }
 
   return `
-    <div style="font-family:inherit; color:#10263b; background:#fff; border:1px solid #dbe6ef; border-radius:18px; overflow:hidden;">
-      <div style="padding:16px 18px; border-bottom:1px solid #dbe6ef; background:#f8fbfe;">
-        <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#61768b;">Rental reservation finance lines</div>
-        <div style="margin-top:4px; color:#476079; font-size:13px;">Page ${pagination.pageNumber} of ${pagination.totalPages} · Showing ${pagination.lines.length === 0 ? 0 : pagination.startIndex + 1}-${pagination.endIndex} of ${pagination.totalItems}</div>
+    <div style="font-family:inherit; color:rgba(var(--v-theme-on-surface),0.92); background:rgba(var(--v-theme-surface),0.82); border:1px solid rgba(var(--v-theme-on-surface),0.14); border-radius:18px; overflow:hidden;">
+      <div style="padding:16px 18px; border-bottom:1px solid rgba(var(--v-theme-on-surface),0.14); background:rgba(var(--v-theme-on-surface),0.03);">
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:rgba(var(--v-theme-on-surface),0.72);">Rental reservation finance lines</div>
+        <div style="margin-top:4px; color:rgba(var(--v-theme-on-surface),0.68); font-size:13px;">Page ${pagination.pageNumber} of ${pagination.totalPages} · Showing ${pagination.lines.length === 0 ? 0 : pagination.startIndex + 1}-${pagination.endIndex} of ${pagination.totalItems}</div>
       </div>
       <div style="display:grid;">
         ${pagination.visibleLines.map((line: any) => `
-          <article style="padding:16px 18px; border-bottom:1px solid #e5edf4; background:#fff;">
+          <article style="padding:16px 18px; border-bottom:1px solid rgba(var(--v-theme-on-surface),0.14); background:transparent;">
             <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:flex-start;">
               <div>
-                <div style="font-size:16px; font-weight:800; color:#10263b;">${escapeHtml(line?.orderNumber || 'Reservation')}</div>
-                <div style="font-size:13px; color:#476079;">Customer: ${escapeHtml(line?.guestName || 'n/a')}</div>
+                <div style="font-size:16px; font-weight:800; color:rgba(var(--v-theme-on-surface),0.96);">${escapeHtml(line?.orderNumber || 'Reservation')}</div>
+                <div style="font-size:13px; color:rgba(var(--v-theme-on-surface),0.74);">Customer: ${escapeHtml(line?.guestName || 'n/a')}</div>
                 <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
                   <span style="padding:4px 8px; border-radius:999px; background:#f4e6d8; color:#8b5e14; font-size:11px; font-weight:700;">${escapeHtml(label(line?.status))}</span>
                   <span style="padding:4px 8px; border-radius:999px; background:#e6f2ea; color:#24613a; font-size:11px; font-weight:700;">${escapeHtml(label(line?.orderPaymentStatus))}</span>
@@ -188,15 +188,15 @@ function renderLines(summary: any, pagination: ReturnType<typeof buildPagination
                   <span style="padding:4px 8px; border-radius:999px; background:#eef4fa; color:#274056; font-size:11px; font-weight:700;">${escapeHtml(label(line?.orderRestaurantStatus))}</span>
                 </div>
               </div>
-              <div style="flex:1 1 320px; min-width:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; font-size:12px; color:#4a3b31;">
-                <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Reservation Total</div><div style="font-weight:700;">${escapeHtml(money(line?.totalAmount, summary?.currency))}</div></div>
-                <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Fees</div><div style="font-weight:700;">${escapeHtml(money(line?.feeAmount, summary?.currency))}</div></div>
-                <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Net</div><div style="font-weight:700;">${escapeHtml(money(line?.netAmount, summary?.currency))}</div></div>
-                <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Outstanding</div><div style="font-weight:700;">${escapeHtml(money(line?.outstandingPayableAmount, summary?.currency))}</div></div>
-                <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Outstanding Remittance</div><div style="font-weight:700;">${escapeHtml(money(line?.outstandingRemittanceAmount, summary?.currency))}</div></div>
-                <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Net Position</div><div style="font-weight:700;">${escapeHtml(money(Number(line?.outstandingPayableAmount ?? 0) - Number(line?.outstandingRemittanceAmount ?? 0), summary?.currency))}</div></div>
-                <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Created</div><div style="font-weight:700;">${escapeHtml(dateTime(line?.createdAt))}</div></div>
-                <div><div style="font-size:11px; color:#61768b; text-transform:uppercase;">Eligible At</div><div style="font-weight:700;">${escapeHtml(dateTime(line?.eligibleAt))}</div></div>
+              <div style="flex:1 1 320px; min-width:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; font-size:12px; color:rgba(var(--v-theme-on-surface),0.84);">
+                <div><div style="font-size:11px; color:rgba(var(--v-theme-on-surface),0.72); text-transform:uppercase;">Reservation Total</div><div style="font-weight:700;">${escapeHtml(money(line?.totalAmount, summary?.currency))}</div></div>
+                <div><div style="font-size:11px; color:rgba(var(--v-theme-on-surface),0.72); text-transform:uppercase;">Fees</div><div style="font-weight:700;">${escapeHtml(money(line?.feeAmount, summary?.currency))}</div></div>
+                <div><div style="font-size:11px; color:rgba(var(--v-theme-on-surface),0.72); text-transform:uppercase;">Net</div><div style="font-weight:700;">${escapeHtml(money(line?.netAmount, summary?.currency))}</div></div>
+                <div><div style="font-size:11px; color:rgba(var(--v-theme-on-surface),0.72); text-transform:uppercase;">Outstanding</div><div style="font-weight:700;">${escapeHtml(money(line?.outstandingPayableAmount, summary?.currency))}</div></div>
+                <div><div style="font-size:11px; color:rgba(var(--v-theme-on-surface),0.72); text-transform:uppercase;">Outstanding Remittance</div><div style="font-weight:700;">${escapeHtml(money(line?.outstandingRemittanceAmount, summary?.currency))}</div></div>
+                <div><div style="font-size:11px; color:rgba(var(--v-theme-on-surface),0.72); text-transform:uppercase;">Net Position</div><div style="font-weight:700;">${escapeHtml(money(Number(line?.outstandingPayableAmount ?? 0) - Number(line?.outstandingRemittanceAmount ?? 0), summary?.currency))}</div></div>
+                <div><div style="font-size:11px; color:rgba(var(--v-theme-on-surface),0.72); text-transform:uppercase;">Created</div><div style="font-weight:700;">${escapeHtml(dateTime(line?.createdAt))}</div></div>
+                <div><div style="font-size:11px; color:rgba(var(--v-theme-on-surface),0.72); text-transform:uppercase;">Eligible At</div><div style="font-weight:700;">${escapeHtml(dateTime(line?.eligibleAt))}</div></div>
               </div>
             </div>
           </article>
