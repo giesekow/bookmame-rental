@@ -381,7 +381,7 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
     }, {
       value: async () => (await loadDashboardSummary()).openSupportCaseCount,
       onClicked: async () => {
-        if (await rentalHasAccess('rental.reservations.view')) {
+        if (await rentalHasAccess('rental.support_cases.view')) {
           openSupportCasesCollection();
         }
       },
@@ -578,6 +578,10 @@ export const RENTAL_DASHBOARD_WIDGET = $DB({
                 actionText: 'Open',
                 actionColor: 'warning',
               },
+            ]
+          : []),
+        ...(await rentalHasAccess('rental.support_cases.view')
+          ? [
               {
                 key: 'support',
                 title: 'Support Cases',

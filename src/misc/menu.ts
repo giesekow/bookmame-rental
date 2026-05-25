@@ -7,6 +7,9 @@ export interface MakeCollectionMenuOptions {
   allowEdit?: boolean
   allowDisplay?: boolean
   access?: MenuItemOptions['access']
+  accessCreate?: MenuItemOptions['access']
+  accessEdit?: MenuItemOptions['access']
+  accessDisplay?: MenuItemOptions['access']
 }
 
 export function makeCollectionMenu(options: MakeCollectionMenuOptions): Menu {
@@ -35,7 +38,7 @@ export function makeCollectionMenu(options: MakeCollectionMenuOptions): Menu {
                 },
                 {
                   collection: options.collection,
-                  access: options.access,
+                  access: options.accessCreate ?? options.access,
                 },
               ),
             ]
@@ -53,7 +56,7 @@ export function makeCollectionMenu(options: MakeCollectionMenuOptions): Menu {
                 },
                 {
                   collection: options.collection,
-                  access: options.access,
+                  access: options.accessEdit ?? options.access,
                 },
               ),
             ]
@@ -71,7 +74,7 @@ export function makeCollectionMenu(options: MakeCollectionMenuOptions): Menu {
                 },
                 {
                   collection: options.collection,
-                  access: options.access,
+                  access: options.accessDisplay ?? options.access,
                 },
               ),
             ]

@@ -11,6 +11,7 @@ import { rentalDeliverySettingsReport } from '../pages/delivery-settings';
 import { rentalProfileReport } from '../pages/profile';
 import { rentalRatingsCollection } from '../pages/ratings';
 import { rentalReservationsCollection } from '../pages/reservations';
+import { rentalStaffMenu } from '../pages/staff';
 import { supportCasesCollection } from '../pages/support-cases';
 import { rentalCancellationRefundsCollection } from '../pages/cancellation-refunds';
 import { rentalRemittanceBatchesCollection, rentalSettlementBatchesCollection } from '../pages/settlement-batches';
@@ -101,7 +102,7 @@ export function buildHomeMenu() {
           color: 'warning',
         }, {
           collection: supportCasesCollection,
-          access: rentalAccess('rental.reservations.view'),
+          access: rentalAccess('rental.support_cases.view'),
         }),
         $MI({
           text: 'Finance',
@@ -123,6 +124,7 @@ export function buildHomeMenu() {
           menu: buildSettingsMenu,
           access: async () =>
             (await rentalHasAccess('rental.profile.view')) ||
+            (await rentalHasAccess('rental.staff.manage')) ||
             (await rentalHasAccess('rental.notifications.view')),
         }),
       ],
@@ -247,6 +249,16 @@ const buildSettingsMenu = () => new Menu(
       }, {
         report: rentalDeliverySettingsReport,
         access: rentalAccess('rental.profile.view'),
+      }),
+      $MI({
+        text: 'Staff',
+        icon: 'mdi-account-group-outline',
+        shortcut: 'T',
+        action: 'menu',
+        color: 'info',
+      }, {
+        menu: rentalStaffMenu,
+        access: rentalAccess('rental.staff.manage'),
       }),
       $MI({
         text: 'Notifications',

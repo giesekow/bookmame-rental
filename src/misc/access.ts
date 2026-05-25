@@ -21,9 +21,15 @@ export const RENTAL_PERMISSION_OPTIONS = [
   { id: 'rental.dashboard.view', name: 'Dashboard' },
   { id: 'rental.profile.view', name: 'Profile' },
   { id: 'rental.inventory.view', name: 'Inventory' },
+  { id: 'rental.inventory.manage', name: 'Inventory Actions' },
   { id: 'rental.delivery_partners.manage', name: 'Delivery Partners' },
   { id: 'rental.reservations.view', name: 'Reservations' },
+  { id: 'rental.reservations.manage', name: 'Reservation Actions' },
+  { id: 'rental.support_cases.view', name: 'Support Cases' },
+  { id: 'rental.support_cases.manage', name: 'Support Case Actions' },
+  { id: 'rental.staff.manage', name: 'Staff' },
   { id: 'rental.finance.view', name: 'Finance' },
+  { id: 'rental.finance.execute', name: 'Finance Actions' },
   { id: 'rental.notifications.view', name: 'Notifications' },
 ];
 

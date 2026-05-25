@@ -194,9 +194,9 @@ export const supportCaseReport = (supportCaseId?: any) => () => {
   return $RP({ title: 'Support Case', objectType: getServicePath(), fluid: true, sideButtonWidth: 260, ...(supportCaseId ? { objectId: supportCaseId } : {}) }, {
     form: () => $FM({ title: 'Support Case', width: 1040 }, {
       children: () => [$PT({}, { children: () => fields })],
-      access: rentalAccess('rental.reservations.view'),
+      access: rentalAccess('rental.support_cases.view'),
     }),
-    access: rentalAccess('rental.reservations.view'),
+    access: rentalAccess('rental.support_cases.view'),
     loaded: async (report) => {
       if (report.$master?.$get('id')) {
         await refreshSupportCaseDetail(report)
@@ -226,7 +226,7 @@ export const supportCasesCollection = () => $COL({
 }, {
   trigger,
   report: supportCaseReport(),
-  access: rentalAccess('rental.reservations.view'),
+  access: rentalAccess('rental.support_cases.view'),
 })
 
 export const supportCasesMenu = () => makeCollectionMenu({
@@ -235,5 +235,5 @@ export const supportCasesMenu = () => makeCollectionMenu({
   allowCreate: false,
   allowEdit: false,
   allowDisplay: true,
-  access: rentalAccess('rental.reservations.view'),
+  access: rentalAccess('rental.support_cases.view'),
 })

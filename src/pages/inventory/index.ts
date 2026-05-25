@@ -235,5 +235,8 @@ export const rentalInventoryCollection = () => $COL({
 export const rentalInventoryMenu = () => makeCollectionMenu({
   title: 'Catalog',
   collection: rentalInventoryCollection,
+  accessCreate: rentalAccess('rental.inventory.manage'),
+  accessEdit: rentalAccess('rental.inventory.manage'),
+  accessDisplay: rentalAccess('rental.inventory.view'),
   access: rentalAccess('rental.inventory.view'),
 })
