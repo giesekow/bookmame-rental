@@ -1,8 +1,9 @@
-import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, Dialogs, Field, Part } from 'vuetify-extended'
+import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, Dialogs, Field, Master, Part } from 'vuetify-extended'
 import { rentalAccess } from '../../misc/access'
 import { makeCollectionMenu } from '../../misc/menu'
 import { downloadReceiptPdf } from '../../misc/print-receipt'
 import { useAppStore } from '../../store/app'
+import { makeConstantOptions } from '@bookmame/web-utils'
 
 function servicePath() {
   const rentalProviderId = useAppStore().rentalProvider?.id
@@ -99,6 +100,37 @@ const trigger = () => $TG({
       totalAmountDisplay: money(item?.totalAmount, item?.currency),
       amountDueDisplay: money(item?.amountDue, item?.currency),
     }))
+  },
+  topChildren: () => [
+    $FD({ label: 'Due Date From', type: 'date', storage: 'dueAtFrom', md: 3 }),
+    $FD({ label: 'Due Date To', type: 'date', storage: 'dueAtTo', md: 3 }),
+    $FD({ label: 'Issued Date From', type: 'date', storage: 'issuedAtFrom', md: 3 }),
+    $FD({ label: 'Issued Date To', type: 'date', storage: 'issuedAtTo', md: 3 }),
+    $FD({ label: 'Status', type: 'select', storage: 'statusList', md: 6, lg: 3, multiple: true }, {
+      selectOptions: makeConstantOptions('invoice-statuses'),
+    }),
+  ],
+  processQuery(query, trigger, mode, search) {
+    const dueAtFrom = String(trigger.$master?.$get('dueAtFrom') || '').trim()
+    const dueAtTo = String(trigger.$master?.$get('dueAtTo') || '').trim()
+    const issuedAtFrom = String(trigger.$master?.$get('issuedAtFrom') || '').trim()
+    const issuedAtTo = String(trigger.$master?.$get('issuedAtTo') || '').trim()
+    const statusListRaw = trigger.$master?.$get('statusList') || []
+    const statusList = Array.isArray(statusListRaw)
+      ? statusListRaw.map((item: unknown) => String(item || '').trim()).filter(Boolean)
+      : []
+
+    if (query.$or) delete query.$or
+    query.q = search ? String(search).trim() : undefined
+    if (dueAtFrom) query.dueAtFrom = dueAtFrom
+    if (dueAtTo) query.dueAtTo = dueAtTo
+    if (issuedAtFrom) query.issuedAtFrom = issuedAtFrom
+    if (issuedAtTo) query.issuedAtTo = issuedAtTo
+    if (statusList.length > 0) query.status = statusList
+    return query
+  },
+  setup(trigger) {
+    trigger.setMaster(new Master({}))
   },
 })
 
