@@ -16,6 +16,7 @@ import { supportCasesCollection } from '../pages/support-cases';
 import { rentalCancellationRefundsCollection } from '../pages/cancellation-refunds';
 import { rentalRemittanceBatchesCollection, rentalSettlementBatchesCollection } from '../pages/settlement-batches';
 import { rentalRemittanceHistoryCollection, rentalSettlementHistoryCollection } from '../pages/settlement-history';
+import { rentalInvoicesCollection } from '../pages/invoices';
 
 export function buildHomeMenu() {
   return new Menu(
@@ -149,6 +150,17 @@ const buildFinanceMenu = () => new Menu(
         color: 'primary',
       }, {
         report: rentalFinanceSummaryReport,
+        access: rentalAccess('rental.finance.view'),
+      }),
+      $MI({
+        text: 'Invoices',
+        icon: 'mdi-file-document-multiple-outline',
+        shortcut: 'I',
+        action: 'collection',
+        mode: 'display',
+        color: 'secondary',
+      }, {
+        collection: () => rentalInvoicesCollection(),
         access: rentalAccess('rental.finance.view'),
       }),
       $MI({
