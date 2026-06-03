@@ -67,6 +67,12 @@ function getServicePath() {
   return `rental-providers/${getRentalProviderId()}/inventory-items`;
 }
 
+function parseTags(value: any) {
+  return Array.from(
+    new Set(value),
+  ).slice(0, 20)
+}
+
 async function configuredDeliveryPartnerOptions() {
   const response = await Api.instance.service(`rental-providers/${getRentalProviderId()}/delivery-partners`).find({
     query: {
@@ -136,6 +142,18 @@ const createForm = () => {
     $FD({ label: 'Applicable Delivery Partners', type: 'select', storage: 'applicableDeliveryCompanyIds', multiple: true, cols: 12, hint: 'Leave empty to inherit all active rental delivery partners. Select specific partners only when an item needs delivery restrictions.' }, {
       selectOptions: configuredDeliveryPartnerOptions,
     }),
+    $FD({
+      label: 'Search Tags',
+      storage: 'tags',
+      type: 'text',
+      multiple: true,
+      cols: 12,
+      hint: 'Optional keywords customers may search for. enter the text and press Enter to add a tag.',
+      placeholder: 'drill, makita, home repair, compact',
+      validation: {
+        maxLen: 20
+      }
+    }),
     $FD({ label: 'Image', type: 'image', storage: 'image' }),
     rentalAttributesField(),
   ];
@@ -143,6 +161,10 @@ const createForm = () => {
   return $FM({
     title: 'Inventory Item',
   }, {
+    saved(form) {
+      const tags = form.$master?.$get?.('tags', [])
+      form.$master?.$set?.('tags', parseTags(tags))
+    },
     children: () => [
       $PT({}, {
         children: () => fields,
@@ -164,6 +186,7 @@ export const rentalInventoryReport = () => $RP({
 }, {
   form: createForm,
   setup(report) {
+    report.$master!.$temporary = ['image']
     resolveIdToImage({
       imageField: 'image',
       idField: 'imageAssetId',
@@ -171,6 +194,7 @@ export const rentalInventoryReport = () => $RP({
     })(report);
   },
   loaded(report) {
+    report.$master!.$temporary = ['image']
     resolveIdToImage({
       imageField: 'image',
       idField: 'imageAssetId',
