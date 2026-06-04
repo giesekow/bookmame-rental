@@ -1,9 +1,18 @@
 import { resolveIdToImage, resolveImageToId, makeConstantOptions } from '@bookmame/web-utils'
-import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, AppManager } from 'vuetify-extended'
+import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, AppManager } from 'vuetify-extended'
 import { rentalAccess } from '../../misc/access'
 
 function servicePath(rentalProviderId: string, itemId: string) {
   return `rental-providers/${rentalProviderId}/inventory-items/${itemId}/variants`
+}
+
+async function fetchDeliveryClassOptions(rentalProviderId: string) {
+  const provider = await Api.instance.service('rental-providers').get(rentalProviderId) as any
+  const items = Array.isArray(provider?.supportedDeliveryClasses) ? provider.supportedDeliveryClasses : []
+  return items.map((item: any) => ({
+    id: item.id,
+    name: item.name || item.code || item.id,
+  }))
 }
 
 function variantAttributesField(storage = 'attributes', label = 'Variant Attributes') {
@@ -73,6 +82,14 @@ export const rentalInventoryVariantsReport = (rentalProviderId: string, itemId: 
           $FD({ label: 'Available', type: 'boolean', storage: 'isAvailable' }),
           $FD({ label: 'Variant Daily Rate Amount', type: 'integer', storage: 'dailyRateAmount', hint: 'Leave empty to inherit the base item daily rate.' }),
           $FD({ label: 'Variant Security Deposit Amount', type: 'integer', storage: 'securityDepositAmount', hint: 'Leave empty to inherit the base item security deposit.' }),
+          $FD({ label: 'Delivery Class', type: 'select', storage: 'deliveryClassId', hint: 'Optional override. Leave blank to inherit the base item delivery metadata.' }, {
+            selectOptions: async () => fetchDeliveryClassOptions(rentalProviderId),
+          }),
+          $FD({ label: 'Weight (grams)', type: 'integer', storage: 'weightGrams' }),
+          $FD({ label: 'Length (cm)', type: 'integer', storage: 'lengthCm' }),
+          $FD({ label: 'Width (cm)', type: 'integer', storage: 'widthCm' }),
+          $FD({ label: 'Height (cm)', type: 'integer', storage: 'heightCm' }),
+          $FD({ label: 'Declared Value Amount', type: 'integer', storage: 'declaredValueAmount', hint: 'Optional. Collected now for future insurance-related flows.' }),
           variantDepositTiersField(),
           $FD({ label: 'Variant Inventory', type: 'integer', storage: 'totalInventory', required: true }),
           $FD({ label: 'Sort Order', type: 'integer', storage: 'sortOrder' }),

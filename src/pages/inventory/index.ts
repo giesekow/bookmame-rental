@@ -88,6 +88,15 @@ async function configuredDeliveryPartnerOptions() {
   }))
 }
 
+async function deliveryClassOptions() {
+  const provider = await Api.instance.service('rental-providers').get(getRentalProviderId()) as any
+  const items = Array.isArray(provider?.supportedDeliveryClasses) ? provider.supportedDeliveryClasses : []
+  return items.map((item: any) => ({
+    id: item.id,
+    name: item.name || item.code || item.id,
+  }))
+}
+
 const trigger = () => $TG({
   title: 'Inventory',
   selectFields: ['id', 'name', 'categoryLabel', 'dailyRateAmount', 'currency', 'totalInventory', 'minimumRentalDays', 'maximumRentalDays', 'status', 'enabled', 'isAvailable', 'createdAt'],
@@ -117,6 +126,14 @@ const createForm = () => {
       selectOptions: makeConstantOptions('currencies'),
       default: () => useAppStore().rentalProvider?.defaultCurrencyCode,
     }),
+    $FD({ label: 'Delivery Class', type: 'select', storage: 'deliveryClassId', hint: 'Required once third-party delivery is enabled for this item.' }, {
+      selectOptions: deliveryClassOptions,
+    }),
+    $FD({ label: 'Weight (grams)', type: 'integer', storage: 'weightGrams' }),
+    $FD({ label: 'Length (cm)', type: 'integer', storage: 'lengthCm' }),
+    $FD({ label: 'Width (cm)', type: 'integer', storage: 'widthCm' }),
+    $FD({ label: 'Height (cm)', type: 'integer', storage: 'heightCm' }),
+    $FD({ label: 'Declared Value Amount', type: 'integer', storage: 'declaredValueAmount', hint: 'Optional. Collected now for future insurance-related flows.' }),
     $FD({ label: 'Total Inventory', type: 'integer', storage: 'totalInventory', required: true }),
     rentalDepositTiersField(),
     $FD({ label: 'Minimum Rental Days', type: 'integer', storage: 'minimumRentalDays' }),
