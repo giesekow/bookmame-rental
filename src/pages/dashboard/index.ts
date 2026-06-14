@@ -178,7 +178,7 @@ function ratingValue(value?: number | null) {
     : 'No ratings yet';
 }
 
-function openReservationsCollection() {
+export function openReservationsCollection() {
   AppManager.showCollection(rentalReservationsCollection()());
 }
 
@@ -200,7 +200,7 @@ async function loadReservationsDueTodayCount() {
   return Number(response?.total ?? response?.length ?? 0);
 }
 
-function openReservationsDueTodayCollection() {
+export function openReservationsDueTodayCollection() {
   const today = todayDateInput();
   AppManager.showCollection(rentalReservationsCollection({
     dueDateFrom: today,
@@ -208,7 +208,7 @@ function openReservationsDueTodayCollection() {
   })());
 }
 
-function openReservation(reservationId?: string) {
+export function openReservation(reservationId?: string) {
   if (!reservationId) {
     openReservationsCollection();
     return;
@@ -219,15 +219,15 @@ function openReservation(reservationId?: string) {
   AppManager.showReport(report);
 }
 
-function openRatingsCollection() {
+export function openRatingsCollection() {
   AppManager.showCollection(rentalRatingsCollection());
 }
 
-function openSupportCasesCollection() {
+export function openSupportCasesCollection() {
   AppManager.showCollection(supportCasesCollection());
 }
 
-function openFinanceSummaryReport() {
+export function openFinanceSummaryReport() {
   AppManager.showReport(rentalFinanceSummaryReport());
 }
 

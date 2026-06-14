@@ -13,6 +13,7 @@ import {
 import { buildHomeMenu } from './menu';
 import { createRentalSwitchSelector } from './rental-switch';
 import { useAppStore } from '../store/app';
+import { hasPartnerPortalReturnTarget, returnToPartnerPortal } from '../misc/partner-launch-target';
 import { resolveThemeMode, saveThemeMode } from '../misc/theme-mode';
 
 type ThemeMode = 'light' | 'dark';
@@ -113,6 +114,20 @@ export function createMainApp() {
       footerStart: () => {
         const appStore = useAppStore();
         return [
+          ...(hasPartnerPortalReturnTarget()
+            ? [
+              new EnvironmentTag({
+                text: 'Back to Portal',
+                color: 'warning',
+                variant: 'outlined',
+                hideOnMobile: true,
+              }, {
+                onClicked() {
+                  returnToPartnerPortal();
+                },
+              }),
+            ]
+            : []),
           new EnvironmentTag({
             text: appStore.rentalProvider?.name || 'No rental provider selected',
             color: 'warning',
@@ -121,6 +136,20 @@ export function createMainApp() {
         ];
       },
       footerEnd: () => [
+        ...(hasPartnerPortalReturnTarget()
+          ? [
+            new EnvironmentTag({
+              text: 'Back to Portal',
+              color: 'warning',
+              variant: 'outlined',
+              hideOnNonMobile: true,
+            }, {
+              onClicked() {
+                returnToPartnerPortal();
+              },
+            }),
+          ]
+          : []),
         new EnvironmentTag({
           text: 'Copyright 2026 Hawkedin Limited',
           color: 'warning',

@@ -31,7 +31,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification?.close()
 
   const url = new URL(typeof data.actionTarget === 'string' && data.actionTarget ? data.actionTarget : '/', self.location.origin)
-  for (const key of ['notificationId', 'sourceService', 'sourceEntityId', 'actionTarget', 'eventType', 'category']) {
+  for (const key of ['notificationId', 'sourceService', 'sourceEntityId', 'tenantId', 'actionTarget', 'eventType', 'category']) {
     if (typeof data[key] === 'string' && data[key]) {
       url.searchParams.set(key, data[key])
     }

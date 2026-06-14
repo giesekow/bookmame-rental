@@ -1,5 +1,6 @@
-import { Api, AppManager, Mailbox } from 'vuetify-extended'
+import { Api, AppManager, Dialogs, Mailbox } from 'vuetify-extended'
 import { rentalReservationsReport } from '../pages/reservations'
+import { useAppStore } from '../store/app'
 
 declare global {
   interface Window {
@@ -17,6 +18,7 @@ const PUSH_QUERY_KEYS = [
   'notificationId',
   'sourceService',
   'sourceEntityId',
+  'tenantId',
   'actionTarget',
   'eventType',
   'category',
@@ -189,6 +191,37 @@ async function markNotificationRead(notificationId: string) {
   await Api.instance.service(`notifications/${notificationId}/read`).patch('', {})
 }
 
+function getTenantIdFromPayload(data: Record<string, unknown>) {
+  const tenantId = typeof data.tenantId === 'string' ? data.tenantId.trim() : ''
+  return tenantId || null
+}
+
+async function ensureTenantAccess(tenantId: string | null) {
+  if (!tenantId) {
+    return true
+  }
+
+  const appStore = useAppStore()
+  const accessibleRentalProviders = await appStore.accessibleRentalProviders()
+  const hasAccess = accessibleRentalProviders.some((item: any) => String(item?.id || '') === tenantId)
+
+  if (!hasAccess) {
+    await Dialogs.$error('You do not have access to the workspace for this notification.')
+    return false
+  }
+
+  const currentProviderId = String(appStore.rentalProvider?.id || '')
+  if (currentProviderId !== tenantId) {
+    const switched = await appStore.switchRentalProvider(tenantId)
+    if (!switched) {
+      await Dialogs.$error('You do not have access to the workspace for this notification.')
+      return false
+    }
+  }
+
+  return true
+}
+
 function getReservationIdFromPayload(data: Record<string, unknown>) {
   const sourceService = typeof data.sourceService === 'string' ? data.sourceService : ''
   const sourceEntityId =
@@ -214,6 +247,12 @@ async function handlePushPayload(data: Record<string, unknown>) {
 
   if (notificationId) {
     await markNotificationRead(notificationId).catch(() => undefined)
+  }
+
+  const tenantId = getTenantIdFromPayload(data)
+  const tenantAccessGranted = await ensureTenantAccess(tenantId)
+  if (!tenantAccessGranted) {
+    return
   }
 
   const reservationId = getReservationIdFromPayload(data)

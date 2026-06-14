@@ -15,6 +15,7 @@ import store from './store';
 import { useAppStore } from './store/app';
 import { applyThemeMode, resolveThemeMode, watchSystemThemeMode } from './misc/theme-mode';
 import { applyRentalDashboardThemeMode } from './pages/dashboard';
+import { openPartnerLaunchTarget, readPartnerLaunchTarget } from './misc/partner-launch-target';
 
 const vuetify = createVuetify({
   components,
@@ -37,6 +38,9 @@ const applyResolvedThemeMode = () => {
 const bootstrap = initializeBootstrap();
 const plainScreen = createPlainScreen();
 const noAccessScreen = createAccessDeniedScreen();
+const launchTarget = readPartnerLaunchTarget();
+let launchTargetHandled = false;
+let launchTargetInFlight = false;
 
 const Root = defineComponent({
   name: 'BookmameRentalApp',
@@ -56,6 +60,34 @@ const Root = defineComponent({
       } else {
         void unregisterCurrentPushDevice();
         void appStore.logout();
+      }
+
+      if (
+        launchTarget &&
+        !launchTargetHandled &&
+        !launchTargetInFlight &&
+        hasAccess &&
+        appStore.hasInitializedRentalProvider &&
+        Boolean(appStore.rentalProvider)
+      ) {
+        launchTargetInFlight = true;
+        void (async () => {
+          try {
+            const launchTenantId = String(launchTarget.tenantId || '').trim();
+            const currentProviderId = String(appStore.rentalProvider?.id || '').trim();
+
+            if (launchTenantId && launchTenantId !== currentProviderId) {
+              const switched = await appStore.switchRentalProvider(launchTenantId);
+              if (!switched) {
+                return;
+              }
+            }
+
+            launchTargetHandled = openPartnerLaunchTarget(launchTarget);
+          } finally {
+            launchTargetInFlight = false;
+          }
+        })();
       }
     });
 
