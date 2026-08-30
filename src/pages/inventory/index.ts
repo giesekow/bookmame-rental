@@ -97,6 +97,22 @@ async function deliveryClassOptions() {
   }))
 }
 
+async function rentalCategoryOptions(field?: Field) {
+  const response = await Api.instance.service('reference-data/marketplace-categories').find({
+    query: { marketplace: 'rental' },
+  }) as any
+  const items = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : [])
+  const options = items.map((item: any) => ({
+    id: item.label,
+    name: item.parentId ? `${item.label} (subcategory)` : item.label,
+  }))
+  const current = String(field?.$value || '').trim()
+  if (current && !options.some((option: any) => option.id === current)) {
+    options.push({ id: current, name: `${current} (inactive or legacy)` })
+  }
+  return options
+}
+
 const trigger = () => $TG({
   title: 'Inventory',
   selectFields: ['id', 'name', 'categoryLabel', 'dailyRateAmount', 'currency', 'totalInventory', 'minimumRentalDays', 'maximumRentalDays', 'status', 'enabled', 'isAvailable', 'createdAt'],
@@ -119,7 +135,9 @@ const createForm = () => {
   const fields: (Field | Part)[] = [
     $FD({ label: 'Name', type: 'text', storage: 'name', required: true }),
     $FD({ label: 'Slug', type: 'text', storage: 'slug', required: true }),
-    $FD({ label: 'Category', type: 'text', storage: 'categoryLabel' }),
+    $FD({ label: 'Category', type: 'autocomplete', storage: 'categoryLabel', clearable: true, hint: 'Choose a managed Rental marketplace category.' }, {
+      selectOptions: rentalCategoryOptions,
+    }),
     $FD({ label: 'Daily Rate Amount', type: 'integer', storage: 'dailyRateAmount', required: true, hint: 'Minor unit amount.' }),
     $FD({ label: 'Security Deposit Amount', type: 'integer', storage: 'securityDepositAmount' }),
     $FD({ label: 'Currency', type: 'select', storage: 'currency', required: true }, {
