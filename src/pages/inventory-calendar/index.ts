@@ -601,11 +601,14 @@ function buildVariantField(report: Report) {
   }
 
   return [
-    $FD({ label: 'Variant', storage: 'rentalInventoryVariantId', type: 'select', required: true }, {
-      selectOptions: () => variants.map((variant: any) => ({
-        id: variant.id,
-        name: variant.name,
-      })),
+    $FD({ label: 'Inventory option', storage: 'rentalInventoryVariantId', type: 'select' }, {
+      selectOptions: () => [
+        { id: '', name: 'Base item' },
+        ...variants.map((variant: any) => ({
+          id: variant.id,
+          name: variant.name,
+        })),
+      ],
     }),
   ]
 }

@@ -1,6 +1,11 @@
 import { resolveIdToImage, resolveImageToId, makeConstantOptions } from '@bookmame/web-utils'
 import { $BN, $COL, $FD, $FM, $PT, $RP, $TG, Api, AppManager } from 'vuetify-extended'
 import { rentalAccess } from '../../misc/access'
+import {
+  hydrateRentalMarketplaceAttributes,
+  normalizeRentalMarketplaceAttributes,
+  rentalMarketplaceAttributesField,
+} from '../../misc/marketplace-attributes'
 
 function servicePath(rentalProviderId: string, itemId: string) {
   return `rental-providers/${rentalProviderId}/inventory-items/${itemId}/variants`
@@ -94,7 +99,15 @@ export const rentalInventoryVariantsReport = (rentalProviderId: string, itemId: 
           $FD({ label: 'Variant Inventory', type: 'integer', storage: 'totalInventory', required: true }),
           $FD({ label: 'Sort Order', type: 'integer', storage: 'sortOrder' }),
           $FD({ label: 'Variant Image', type: 'image', storage: 'image' }),
-          variantAttributesField(),
+          rentalMarketplaceAttributesField({
+            rentalProviderId: () => rentalProviderId,
+            facetId: async () => {
+              const item = await Api.instance.service(`rental-providers/${rentalProviderId}/inventory-items`).get(itemId) as any
+              return item?.marketplaceFacetId
+            },
+            variantDefining: true,
+          }),
+          variantAttributesField('attributes', 'Additional Variant Attributes'),
         ],
       }),
     ],
@@ -106,6 +119,8 @@ export const rentalInventoryVariantsReport = (rentalProviderId: string, itemId: 
       }),
     ],
     saved: async (form) => {
+      const rows = form.$master?.$get('marketplaceAttributes', [])
+      form.$master?.$set('marketplaceAttributes', normalizeRentalMarketplaceAttributes(rows))
       form.$master!.$temporary = ['image']
       await resolveImageToId({
         imageField: 'image',
@@ -133,6 +148,8 @@ export const rentalInventoryVariantsReport = (rentalProviderId: string, itemId: 
       idField: 'imageAssetId',
       cacheField: 'imageCache',
     })(report)
+    const rows = report.$master?.$get('marketplaceAttributes', [])
+    report.$master?.$set('marketplaceAttributes', hydrateRentalMarketplaceAttributes(rows))
   },
   access: rentalAccess('rental.inventory.view'),
 })

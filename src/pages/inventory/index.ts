@@ -6,6 +6,12 @@ import { rentalInventoryVariantsCollection } from '../inventory-variants';
 import { openRentalInventoryCalendar } from '../inventory-calendar';
 import { useAppStore } from '../../store/app';
 import { makeCollectionMenu } from '../../misc/menu';
+import {
+  hydrateRentalMarketplaceAttributes,
+  normalizeRentalMarketplaceAttributes,
+  rentalMarketplaceAttributesField,
+  resolveRentalCategoryFacetId,
+} from '../../misc/marketplace-attributes';
 
 function rentalAttributesField(storage = 'attributes', label = 'Item Attributes') {
   return $FD({ label, storage, type: 'collection', cols: 12, hint: 'Structured label and value rows shown to customers before the description section.' }, {
@@ -99,7 +105,7 @@ async function deliveryClassOptions() {
 
 async function rentalCategoryOptions(field?: Field) {
   const response = await Api.instance.service('reference-data/marketplace-categories').find({
-    query: { marketplace: 'rental' },
+    query: { marketplace: 'rental', $paginate: false },
   }) as any
   const items = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : [])
   const options = items.map((item: any) => ({
@@ -132,10 +138,32 @@ const trigger = () => $TG({
 }, {});
 
 const createForm = () => {
+  const fm = $FM({
+    title: 'Inventory Item',
+  }, {
+    saved(form) {
+      const tags = form.$master?.$get?.('tags', [])
+      form.$master?.$set?.('tags', parseTags(tags))
+      const rows = form.$master?.$get?.('marketplaceAttributes', [])
+      form.$master?.$set?.('marketplaceAttributes', normalizeRentalMarketplaceAttributes(rows))
+    },
+    children: () => [
+      $PT({}, {
+        children: () => fields,
+      }),
+    ],
+    bottomChildren: () => [
+      $PT({}, {
+        children: () => [
+          $FD({ label: 'Description', type: 'textarea', storage: 'description' }),
+        ],
+      }),
+    ],
+  });
   const fields: (Field | Part)[] = [
     $FD({ label: 'Name', type: 'text', storage: 'name', required: true }),
     $FD({ label: 'Slug', type: 'text', storage: 'slug', required: true }),
-    $FD({ label: 'Category', type: 'autocomplete', storage: 'categoryLabel', clearable: true, hint: 'Choose a managed Rental marketplace category.' }, {
+    $FD({ label: 'Category', type: 'select', storage: 'categoryLabel', clearable: true, hint: 'Choose a managed Rental marketplace category. Changing it may make existing structured attributes incompatible.' }, {
       selectOptions: rentalCategoryOptions,
     }),
     $FD({ label: 'Daily Rate Amount', type: 'integer', storage: 'dailyRateAmount', required: true, hint: 'Minor unit amount.' }),
@@ -190,29 +218,13 @@ const createForm = () => {
       }
     }),
     $FD({ label: 'Image', type: 'image', storage: 'image' }),
-    rentalAttributesField(),
+    rentalMarketplaceAttributesField({
+      rentalProviderId: getRentalProviderId,
+      facetId: () => resolveRentalCategoryFacetId(fm.$master?.$get('categoryLabel')),
+    }),
+    rentalAttributesField('attributes', 'Additional Attributes'),
   ];
-
-  return $FM({
-    title: 'Inventory Item',
-  }, {
-    saved(form) {
-      const tags = form.$master?.$get?.('tags', [])
-      form.$master?.$set?.('tags', parseTags(tags))
-    },
-    children: () => [
-      $PT({}, {
-        children: () => fields,
-      }),
-    ],
-    bottomChildren: () => [
-      $PT({}, {
-        children: () => [
-          $FD({ label: 'Description', type: 'textarea', storage: 'description' }),
-        ],
-      }),
-    ],
-  });
+  return fm;
 };
 
 export const rentalInventoryReport = () => $RP({
@@ -235,6 +247,8 @@ export const rentalInventoryReport = () => $RP({
       idField: 'imageAssetId',
       cacheField: 'imageCache',
     })(report);
+    const rows = report.$master?.$get('marketplaceAttributes', [])
+    report.$master?.$set('marketplaceAttributes', hydrateRentalMarketplaceAttributes(rows))
   },
   saved: async (report) => {
     await resolveImageToId({
